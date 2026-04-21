@@ -18,4 +18,4 @@ curl -s -X POST "${BASE_URL}/api/webhooks/mds" \
     \"member_email\": \"${MEMBER_EMAIL:-member1@example.com}\",
     \"net_amount\": 100,
     \"product_category\": \"nutrition\"
-  }"
+}"
