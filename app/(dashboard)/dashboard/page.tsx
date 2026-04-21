@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import {
   CheckCircle2,
   XCircle,
-  AlertCircle,
   Clock,
   ShieldCheck,
   ShieldAlert,
@@ -11,6 +10,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { KycUploadDialog } from "@/components/kyc/kyc-upload-dialog";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -115,10 +115,7 @@ export default async function DashboardPage() {
             </div>
 
             {!kycVerified && (
-              <Button className="shrink-0 bg-amber-500 hover:bg-amber-600">
-                <AlertCircle size={15} />
-                Subir Documentación
-              </Button>
+              <KycUploadDialog kycStatus={user.kycStatus} />
             )}
           </div>
         </CardContent>

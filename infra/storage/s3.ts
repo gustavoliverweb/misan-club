@@ -19,6 +19,23 @@ function getBucket(): string {
   return bucket;
 }
 
+export async function uploadFile(
+  key: string,
+  buffer: Buffer,
+  contentType: string,
+): Promise<void> {
+  const client = getS3Client();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: getBucket(),
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+      ServerSideEncryption: "AES256",
+    }),
+  );
+}
+
 export async function uploadPdf(key: string, buffer: Buffer): Promise<void> {
   const client = getS3Client();
   await client.send(

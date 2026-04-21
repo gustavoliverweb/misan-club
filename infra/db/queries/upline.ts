@@ -6,6 +6,7 @@ export type UplineMember = {
   sponsorId: string | null;
   level: number;
   membershipStatus: string | null;
+  fullName: string;
 };
 
 // Resolves the upline chain for a given member up to MAX_LEVELS.
@@ -42,9 +43,11 @@ export async function getUpline(
       u.sponsor_id        AS "memberId",
       nh2.sponsor_id      AS "sponsorId",
       u.level,
-      m.status            AS "membershipStatus"
+      m.status            AS "membershipStatus",
+      usr.full_name       AS "fullName"
     FROM upline u
     LEFT JOIN network_hierarchy nh2 ON nh2.member_id = u.sponsor_id
+    LEFT JOIN users usr ON usr.id = u.sponsor_id
     LEFT JOIN LATERAL (
       SELECT status
       FROM memberships

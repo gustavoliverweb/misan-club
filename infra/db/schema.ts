@@ -25,6 +25,17 @@ export const transactionTypeEnum = pgEnum("transaction_type", [
   "credit",
   "debit",
 ]);
+export const kycDocumentTypeEnum = pgEnum("kyc_document_type", [
+  "dni_front",
+  "dni_back",
+  "passport",
+  "selfie",
+]);
+export const kycSubmissionStatusEnum = pgEnum("kyc_submission_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -79,19 +90,39 @@ export const autofacturas = pgTable("autofacturas", {
   emisorId: uuid("emisor_id")
     .notNull()
     .references(() => users.id),
-  receptorName: varchar("receptor_name", { length: 255 }).notNull().default("MisanClub"),
-  concepto: text("concepto").notNull().default("Servicios de intermediación comercial"),
+  receptorName: varchar("receptor_name", { length: 255 })
+    .notNull()
+    .default("MisanClub"),
+  concepto: text("concepto")
+    .notNull()
+    .default("Servicios de intermediación comercial"),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   currency: varchar("currency", { length: 3 }).notNull().default("EUR"),
   s3Key: varchar("s3_key", { length: 500 }),
   issuedAt: timestamp("issued_at").notNull().defaultNow(),
 });
 
+export const kycSubmissions = pgTable("kyc_submissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  documentType: kycDocumentTypeEnum("document_type").notNull(),
+  s3Key: varchar("s3_key", { length: 500 }).notNull(),
+  status: kycSubmissionStatusEnum("status").notNull().default("pending"),
+  reviewedBy: uuid("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  rejectionReason: text("rejection_reason"),
+  submittedAt: timestamp("submitted_at").notNull().defaultNow(),
+});
+
 // Idempotency guard for external webhook events.
 // An external_order_id is written here before processing; duplicate arrivals are discarded.
 export const processedExternalOrders = pgTable("processed_external_orders", {
   id: uuid("id").primaryKey().defaultRandom(),
-  externalOrderId: varchar("external_order_id", { length: 255 }).notNull().unique(),
+  externalOrderId: varchar("external_order_id", { length: 255 })
+    .notNull()
+    .unique(),
   memberId: uuid("member_id")
     .notNull()
     .references(() => users.id),
@@ -105,6 +136,16 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   memberships: many(memberships),
   transactions: many(transactions),
+  kycSubmissions: many(kycSubmissions),
+}));
+
+export const kycSubmissionsRelations = relations(kycSubmissions, ({ one }) => ({
+  user: one(users, { fields: [kycSubmissions.userId], references: [users.id] }),
+  reviewer: one(users, { fields: [kycSubmissions.reviewedBy], references: [users.id] }),
+}));
+
+export const autofacturasRelations = relations(autofacturas, ({ one }) => ({
+  emisor: one(users, { fields: [autofacturas.emisorId], references: [users.id] }),
 }));
 
 export const networkHierarchyRelations = relations(
@@ -118,5 +159,5 @@ export const networkHierarchyRelations = relations(
       fields: [networkHierarchy.sponsorId],
       references: [users.id],
     }),
-  })
+  }),
 );

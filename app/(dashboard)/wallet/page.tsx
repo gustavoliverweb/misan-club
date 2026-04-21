@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { eq, desc } from "drizzle-orm";
-import { ArrowDownLeft, ArrowUpRight, Wallet as WalletIcon } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Wallet as WalletIcon,
+} from "lucide-react";
 import { getCurrentUser } from "@/lib/current-user";
 import { WalletService } from "@/core/services/wallet.service";
 import { db } from "@/infra/db";
@@ -15,16 +19,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { WithdrawalForm } from "@/components/wallet/withdrawal-form";
 
 const walletService = new WalletService();
 
-const fmt = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
-const fmtDate = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
+const fmt = new Intl.NumberFormat("es-ES", {
+  style: "currency",
+  currency: "EUR",
+});
+const fmtDate = new Intl.DateTimeFormat("es-ES", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 
 export default async function WalletPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-
+  // console.log("Current user:", user);
   const txRows = await db
     .select({
       id: transactions.id,
@@ -39,6 +50,7 @@ export default async function WalletPage() {
     .from(transactions)
     .where(eq(transactions.userId, user.id))
     .orderBy(desc(transactions.createdAt));
+  console.log(txRows);
 
   // Map DB rows → domain Transaction type for WalletService (decimal string → number)
   const domainTxs = txRows.map((row) => ({
@@ -49,6 +61,10 @@ export default async function WalletPage() {
 
   const balance = walletService.computeBalance(domainTxs);
 
+  // Spec 03: window = days 1–5 of each month (UTC)
+  const todayUTC = new Date().getUTCDate();
+  const isWithdrawalWindow = todayUTC >= 1 && todayUTC <= 5;
+
   // Last 20 for display
   const recent = txRows.slice(0, 20);
 
@@ -56,7 +72,9 @@ export default async function WalletPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Billetera</h1>
-        <p className="mt-1 text-sm text-gray-500">Saldo y movimientos de tu cuenta</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Saldo y movimientos de tu cuenta
+        </p>
       </div>
 
       {/* ── Balance card ──────────────────────────────────── */}
@@ -86,6 +104,20 @@ export default async function WalletPage() {
         </CardContent>
       </Card>
 
+      {/* ── Withdrawal ───────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Solicitar Retiro</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <WithdrawalForm
+            balance={balance}
+            kycStatus={user.kycStatus}
+            isWithdrawalWindow={isWithdrawalWindow}
+          />
+        </CardContent>
+      </Card>
+
       {/* ── Transactions list ─────────────────────────────── */}
       <Card>
         <CardHeader>
@@ -95,7 +127,9 @@ export default async function WalletPage() {
           {recent.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-12 text-center">
               <WalletIcon size={40} className="text-gray-300" />
-              <p className="text-sm font-medium text-gray-500">Sin movimientos todavía</p>
+              <p className="text-sm font-medium text-gray-500">
+                Sin movimientos todavía
+              </p>
               <p className="text-xs text-gray-400">
                 Las comisiones aparecerán aquí una vez proceses una venta.
               </p>
@@ -123,7 +157,9 @@ export default async function WalletPage() {
                         ) : (
                           <ArrowUpRight size={14} className="text-red-500" />
                         )}
-                        <Badge variant={tx.type === "credit" ? "success" : "error"}>
+                        <Badge
+                          variant={tx.type === "credit" ? "success" : "error"}
+                        >
                           {tx.type === "credit" ? "Crédito" : "Débito"}
                         </Badge>
                       </span>

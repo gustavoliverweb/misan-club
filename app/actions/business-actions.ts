@@ -3,14 +3,16 @@
 import { eq, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "@/infra/db";
-import { transactions, users } from "@/infra/db/schema";
+import { autofacturas, transactions, users } from "@/infra/db/schema";
 import { getActiveUpline } from "@/infra/db/queries/upline";
 import { CommissionService } from "@/core/services/commission.service";
 import { WalletService } from "@/core/services/wallet.service";
+import { AutofacturaService } from "@/core/services/autofactura.service";
 import { purchaseSchema, withdrawalSchema } from "@/lib/validations/actions";
 
 const commissionService = new CommissionService();
 const walletService = new WalletService();
+const autofacturaService = new AutofacturaService();
 
 // Spec 02: default percentages per ascending level
 const LEVEL_PERCENTAGES = [0.1, 0.05, 0.03, 0.02, 0.01] as const;
@@ -36,7 +38,7 @@ async function getLastChecksum(userId: string): Promise<string | null> {
 }
 
 export async function processSaleAction(
-  input: unknown
+  input: unknown,
 ): Promise<ActionResult<{ transactionIds: string[] }>> {
   const parsed = purchaseSchema.safeParse(input);
   if (!parsed.success) {
@@ -48,10 +50,11 @@ export async function processSaleAction(
   try {
     // Read-only: resolve active upline before opening the write transaction
     const activeUpline = await getActiveUpline(db, memberId);
+    // console.log("Active upline:", activeUpline);
 
     if (activeUpline.length === 0) {
       auditLog(
-        `Sale by ${memberId}: no active upline — full commission goes to reserve fund`
+        `Sale by ${memberId}: no active upline — full commission goes to reserve fund`,
       );
       return { success: true, data: { transactionIds: [] } };
     }
@@ -66,6 +69,10 @@ export async function processSaleAction(
     });
 
     const transactionIds: string[] = [];
+
+    // Collected during the loop to create autofacturas after the SQL transaction
+    type AfInput = { txId: string; emisorId: string; emisorName: string; amount: number };
+    const afInputs: AfInput[] = [];
 
     // Spec 02: all ledger inserts must be atomic — a single level failure rolls back everything
     await db.transaction(async (tx) => {
@@ -86,7 +93,7 @@ export async function processSaleAction(
             description,
             referenceId: productId,
           },
-          previousChecksum
+          previousChecksum,
         );
 
         await tx.insert(transactions).values({
@@ -94,17 +101,43 @@ export async function processSaleAction(
           userId: recipient.memberId,
           amount: commission.amount.toString(),
           type: "credit",
-          description: `Comisión nivel ${commission.level} — venta ${productId}`,
+          description,
           referenceId: productId,
           checksum,
         });
 
         transactionIds.push(txId);
+        afInputs.push({
+          txId,
+          emisorId: recipient.memberId,
+          emisorName: recipient.fullName ?? recipient.memberId,
+          amount: commission.amount,
+        });
         auditLog(
-          `Credit: User ${recipient.memberId}, Amount ${commission.amount}, Reason: Commission Level ${commission.level}`
+          `Credit: User ${recipient.memberId}, Amount ${commission.amount}, Reason: Commission Level ${commission.level}`,
         );
       }
     });
+
+    // Spec 04 §4.2: create one autofactura per commission — outside the SQL transaction
+    // so a PDF/storage failure never rolls back the financial ledger.
+    for (const af of afInputs) {
+      const built = autofacturaService.build({
+        commissionId: af.txId,
+        emisorId: af.emisorId,
+        emisorName: af.emisorName,
+        amount: af.amount,
+      });
+      await db.insert(autofacturas).values({
+        id: built.id,
+        commissionId: built.commissionId,
+        emisorId: built.emisorId,
+        amount: built.amount.toString(),
+        issuedAt: built.issuedAt,
+        // s3Key omitted until storage provider is configured
+      });
+      auditLog(`Autofactura created: ${built.id} for commission ${af.txId}`);
+    }
 
     return { success: true, data: { transactionIds } };
   } catch (err) {
@@ -116,7 +149,7 @@ export async function processSaleAction(
 }
 
 export async function requestWithdrawalAction(
-  input: unknown
+  input: unknown,
 ): Promise<ActionResult<{ transactionId: string }>> {
   const parsed = withdrawalSchema.safeParse(input);
   if (!parsed.success) {
@@ -163,7 +196,7 @@ export async function requestWithdrawalAction(
     const validation = walletService.validateWithdrawal(
       { userId: memberId, amount, requestedAt: new Date() },
       userRows[0].kycStatus,
-      balance
+      balance,
     );
 
     if (!validation.ok) {
@@ -182,7 +215,7 @@ export async function requestWithdrawalAction(
         description: "Solicitud de retiro",
         referenceId: undefined,
       },
-      previousChecksum
+      previousChecksum,
     );
 
     await db.insert(transactions).values({
@@ -195,7 +228,7 @@ export async function requestWithdrawalAction(
     });
 
     auditLog(
-      `Debit: User ${memberId}, Amount ${amount}, Reason: Withdrawal request`
+      `Debit: User ${memberId}, Amount ${amount}, Reason: Withdrawal request`,
     );
 
     return { success: true, data: { transactionId: txId } };
