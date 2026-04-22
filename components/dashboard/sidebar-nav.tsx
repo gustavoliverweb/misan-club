@@ -7,6 +7,7 @@ import {
   GitBranch,
   Wallet,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +18,9 @@ const NAV_ITEMS = [
   { href: "/settings",    label: "Configuración", icon: Settings },
 ];
 
-export function SidebarNav() {
+type Props = { role?: string };
+
+export function SidebarNav({ role }: Props) {
   const pathname = usePathname();
 
   return (
@@ -40,6 +43,15 @@ export function SidebarNav() {
           </Link>
         );
       })}
+      {role === "admin" && (
+        <Link
+          href="/admin/kyc"
+          className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+        >
+          <ShieldCheck size={18} strokeWidth={2} />
+          Panel Admin
+        </Link>
+      )}
     </nav>
   );
 }

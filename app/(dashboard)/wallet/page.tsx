@@ -4,11 +4,12 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Wallet as WalletIcon,
+  FileDown,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/current-user";
 import { WalletService } from "@/core/services/wallet.service";
 import { db } from "@/infra/db";
-import { transactions } from "@/infra/db/schema";
+import { transactions, autofacturas } from "@/infra/db/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -46,11 +47,12 @@ export default async function WalletPage() {
       referenceId: transactions.referenceId,
       checksum: transactions.checksum,
       createdAt: transactions.createdAt,
+      autofacturaId: autofacturas.id,
     })
     .from(transactions)
+    .leftJoin(autofacturas, eq(autofacturas.commissionId, transactions.id))
     .where(eq(transactions.userId, user.id))
     .orderBy(desc(transactions.createdAt));
-  console.log(txRows);
 
   // Map DB rows → domain Transaction type for WalletService (decimal string → number)
   const domainTxs = txRows.map((row) => ({
@@ -142,12 +144,13 @@ export default async function WalletPage() {
                   <TableHead>Tipo</TableHead>
                   <TableHead className="text-right">Importe</TableHead>
                   <TableHead className="hidden sm:table-cell">Fecha</TableHead>
+                  <TableHead className="hidden sm:table-cell">Factura</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {recent.map((tx) => (
                   <TableRow key={tx.id}>
-                    <TableCell className="max-w-[160px] truncate font-medium">
+                    <TableCell className="max-w-40 truncate font-medium">
                       {tx.description}
                     </TableCell>
                     <TableCell>
@@ -174,6 +177,21 @@ export default async function WalletPage() {
                     </TableCell>
                     <TableCell className="hidden text-xs text-gray-400 sm:table-cell">
                       {fmtDate.format(new Date(tx.createdAt))}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      {tx.autofacturaId ? (
+                        <a
+                          href={`/api/autofacturas/${tx.autofacturaId}/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          <FileDown size={13} />
+                          PDF
+                        </a>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

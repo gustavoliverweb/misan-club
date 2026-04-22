@@ -22,5 +22,6 @@ export const config = {
     "/wallet/:path*",
     "/my-network/:path*",
     "/settings/:path*",
+    "/admin/:path*",
   ],
 };

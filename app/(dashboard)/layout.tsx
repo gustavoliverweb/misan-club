@@ -22,7 +22,7 @@ export default async function DashboardLayout({
           </span>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <SidebarNav />
+          <SidebarNav role={user.role} />
         </div>
         <div className="border-t border-gray-200 p-4 space-y-2">
           <p className="truncate text-sm font-medium text-gray-900">{user.fullName}</p>
