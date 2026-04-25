@@ -11,6 +11,14 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
+export const productCategoryEnum = pgEnum("product_category", [
+  "standard",
+  "proprietary",
+  "reduced",
+  "membership",
+  "service",
+]);
+
 export const kycStatusEnum = pgEnum("kyc_status", [
   "pending",
   "verified",
@@ -80,7 +88,18 @@ export const transactions = pgTable("transactions", {
   type: transactionTypeEnum("type").notNull(),
   description: text("description").notNull(),
   referenceId: uuid("reference_id"),
+  productCategory: productCategoryEnum("product_category"),
   checksum: varchar("checksum", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Quarterly pool accumulator: one row per sale. Distribution by rank happens separately.
+export const poolContributions = pgTable("pool_contributions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id").notNull(),
+  category: productCategoryEnum("category"),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  quarter: varchar("quarter", { length: 7 }).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

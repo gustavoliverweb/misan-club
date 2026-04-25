@@ -13,12 +13,12 @@ export function TableHeader({ ...props }: React.HTMLAttributes<HTMLTableSectionE
 }
 
 export function TableBody({ ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return <tbody className="divide-y divide-gray-100" {...props} />;
+  return <tbody className="divide-y divide-border" {...props} />;
 }
 
 export function TableRow({ className, ...props }: React.HTMLAttributes<HTMLTableRowElement>) {
   return (
-    <tr className={cn("transition-colors hover:bg-gray-50", className)} {...props} />
+    <tr className={cn("transition-colors hover:bg-hover", className)} {...props} />
   );
 }
 
@@ -26,7 +26,7 @@ export function TableHead({ className, ...props }: React.ThHTMLAttributes<HTMLTa
   return (
     <th
       className={cn(
-        "h-10 px-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500",
+        "h-10 border-b border-border px-4 text-left text-xs font-semibold uppercase tracking-wide text-muted",
         className
       )}
       {...props}
@@ -35,5 +35,5 @@ export function TableHead({ className, ...props }: React.ThHTMLAttributes<HTMLTa
 }
 
 export function TableCell({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("px-4 py-3 text-gray-700", className)} {...props} />;
+  return <td className={cn("px-4 py-3 text-muted", className)} {...props} />;
 }

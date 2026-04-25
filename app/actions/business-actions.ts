@@ -3,19 +3,17 @@
 import { eq, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "@/infra/db";
-import { autofacturas, transactions, users } from "@/infra/db/schema";
+import { autofacturas, transactions, users, poolContributions } from "@/infra/db/schema";
 import { getActiveUpline } from "@/infra/db/queries/upline";
 import { CommissionService } from "@/core/services/commission.service";
 import { WalletService } from "@/core/services/wallet.service";
 import { AutofacturaService } from "@/core/services/autofactura.service";
 import { purchaseSchema, withdrawalSchema } from "@/lib/validations/actions";
+import { CATEGORY_CONFIG, getQuarter } from "@/core/domain/product-category";
 
 const commissionService = new CommissionService();
 const walletService = new WalletService();
 const autofacturaService = new AutofacturaService();
-
-// Spec 02: default percentages per ascending level
-const LEVEL_PERCENTAGES = [0.1, 0.05, 0.03, 0.02, 0.01] as const;
 
 type ActionResult<T = undefined> =
   | { success: true; data: T }
@@ -37,6 +35,31 @@ async function getLastChecksum(userId: string): Promise<string | null> {
   return rows[0]?.checksum ?? null;
 }
 
+async function insertDirectCredit(
+  userId: string,
+  amount: number,
+  description: string,
+  referenceId: string,
+): Promise<string> {
+  const txId = randomUUID();
+  const previousChecksum = await getLastChecksum(userId);
+  const checksum = walletService.generateChecksum(
+    { id: txId, userId, amount, type: "credit", description, referenceId },
+    previousChecksum,
+  );
+  await db.insert(transactions).values({
+    id: txId,
+    userId,
+    amount: amount.toString(),
+    type: "credit",
+    description,
+    referenceId,
+    checksum,
+  });
+  auditLog(`Credit: User ${userId}, Amount ${amount}, Reason: ${description}`);
+  return txId;
+}
+
 export async function processSaleAction(
   input: unknown,
 ): Promise<ActionResult<{ transactionIds: string[] }>> {
@@ -45,98 +68,144 @@ export async function processSaleAction(
     return { success: false, error: parsed.error.issues[0].message };
   }
 
-  const { memberId, productId, totalAmount, marginFactor } = parsed.data;
+  const {
+    memberId,
+    productId,
+    category,
+    saleAmountNet,
+    commercialMargin,
+    isPublicSale,
+    directMarginAmount,
+  } = parsed.data;
+
+  const config = CATEGORY_CONFIG[category];
+
+  // Spec 05 §3.1 — for service, 70% goes directly to the seller; 30% is the network base
+  const baseForCommissions =
+    category === "service"
+      ? Math.round((commercialMargin! * 0.3) * 100) / 100
+      : saleAmountNet;
 
   try {
-    // Read-only: resolve active upline before opening the write transaction
+    const transactionIds: string[] = [];
+
+    // ── Direct credit: service seller (70% of commercial margin) ─────────────
+    if (category === "service" && commercialMargin) {
+      const directAmount = Math.round(commercialMargin * 0.7 * 100) / 100;
+      const txId = await insertDirectCredit(
+        memberId,
+        directAmount,
+        `Margen directo — venta servicio ${productId}`,
+        productId,
+      );
+      transactionIds.push(txId);
+    }
+
+    // ── Direct credit: public sale margin (PrecioPublico - PrecioSocio) ──────
+    if (isPublicSale && directMarginAmount) {
+      const txId = await insertDirectCredit(
+        memberId,
+        directMarginAmount,
+        `Margen venta pública — producto ${productId}`,
+        productId,
+      );
+      transactionIds.push(txId);
+    }
+
+    // ── Resolve upline ────────────────────────────────────────────────────────
     const activeUpline = await getActiveUpline(db, memberId);
-    // console.log("Active upline:", activeUpline);
 
     if (activeUpline.length === 0) {
       auditLog(
         `Sale by ${memberId}: no active upline — full commission goes to reserve fund`,
       );
-      return { success: true, data: { transactionIds: [] } };
-    }
+    } else {
+      const levelPercentages = config.levelPercentages.slice(0, activeUpline.length);
 
-    const levelPercentages = LEVEL_PERCENTAGES.slice(0, activeUpline.length);
+      // Pure calculation — no DB calls (marginFactor always 1; category rates are in levelPercentages)
+      const distribution = commissionService.calculate({
+        saleAmountNet: baseForCommissions,
+        marginFactor: 1,
+        levelPercentages: [...levelPercentages],
+      });
 
-    // Pure calculation — no DB calls
-    const distribution = commissionService.calculate({
-      saleAmountNet: totalAmount,
-      marginFactor,
-      levelPercentages: [...levelPercentages],
-    });
+      type AfInput = { txId: string; emisorId: string; emisorName: string; amount: number };
+      const afInputs: AfInput[] = [];
 
-    const transactionIds: string[] = [];
+      // Spec 02: all ledger inserts must be atomic — a single level failure rolls back everything
+      await db.transaction(async (tx) => {
+        for (const commission of distribution.commissions) {
+          const recipient = activeUpline[commission.level - 1];
+          if (!recipient) continue;
 
-    // Collected during the loop to create autofacturas after the SQL transaction
-    type AfInput = { txId: string; emisorId: string; emisorName: string; amount: number };
-    const afInputs: AfInput[] = [];
+          const txId = randomUUID();
+          const previousChecksum = await getLastChecksum(recipient.memberId);
+          const description = `Comisión nivel ${commission.level} — venta ${productId}`;
+          const checksum = walletService.generateChecksum(
+            {
+              id: txId,
+              userId: recipient.memberId,
+              amount: commission.amount,
+              type: "credit",
+              description,
+              referenceId: productId,
+            },
+            previousChecksum,
+          );
 
-    // Spec 02: all ledger inserts must be atomic — a single level failure rolls back everything
-    await db.transaction(async (tx) => {
-      for (const commission of distribution.commissions) {
-        const recipient = activeUpline[commission.level - 1];
-        if (!recipient) continue;
-
-        const txId = randomUUID();
-        // Checksum is read outside the transaction (read-only, no contention risk for MVP)
-        const previousChecksum = await getLastChecksum(recipient.memberId);
-        const description = `Comisión nivel ${commission.level} — venta ${productId}`;
-        const checksum = walletService.generateChecksum(
-          {
+          await tx.insert(transactions).values({
             id: txId,
             userId: recipient.memberId,
-            amount: commission.amount,
+            amount: commission.amount.toString(),
             type: "credit",
             description,
             referenceId: productId,
-          },
-          previousChecksum,
-        );
+            productCategory: category,
+            checksum,
+          });
 
-        await tx.insert(transactions).values({
-          id: txId,
-          userId: recipient.memberId,
-          amount: commission.amount.toString(),
-          type: "credit",
-          description,
-          referenceId: productId,
-          checksum,
-        });
+          transactionIds.push(txId);
+          afInputs.push({
+            txId,
+            emisorId: recipient.memberId,
+            emisorName: recipient.fullName ?? recipient.memberId,
+            amount: commission.amount,
+          });
+          auditLog(
+            `Credit: User ${recipient.memberId}, Amount ${commission.amount}, Reason: Commission Level ${commission.level}`,
+          );
+        }
+      });
 
-        transactionIds.push(txId);
-        afInputs.push({
-          txId,
-          emisorId: recipient.memberId,
-          emisorName: recipient.fullName ?? recipient.memberId,
-          amount: commission.amount,
+      // Spec 04 §4.2: autofacturas outside the SQL transaction so PDF failure never rolls back the ledger
+      for (const af of afInputs) {
+        const built = autofacturaService.build({
+          commissionId: af.txId,
+          emisorId: af.emisorId,
+          emisorName: af.emisorName,
+          amount: af.amount,
         });
-        auditLog(
-          `Credit: User ${recipient.memberId}, Amount ${commission.amount}, Reason: Commission Level ${commission.level}`,
-        );
+        await db.insert(autofacturas).values({
+          id: built.id,
+          commissionId: built.commissionId,
+          emisorId: built.emisorId,
+          amount: built.amount.toString(),
+          issuedAt: built.issuedAt,
+        });
+        auditLog(`Autofactura created: ${built.id} for commission ${af.txId}`);
       }
-    });
+    }
 
-    // Spec 04 §4.2: create one autofactura per commission — outside the SQL transaction
-    // so a PDF/storage failure never rolls back the financial ledger.
-    for (const af of afInputs) {
-      const built = autofacturaService.build({
-        commissionId: af.txId,
-        emisorId: af.emisorId,
-        emisorName: af.emisorName,
-        amount: af.amount,
+    // ── Pool contribution — outside the SQL transaction (same isolation pattern as autofacturas) ──
+    const poolAmount = Math.round(baseForCommissions * config.poolRate * 100) / 100;
+    if (poolAmount > 0) {
+      await db.insert(poolContributions).values({
+        productId,
+        category,
+        amount: poolAmount.toString(),
+        quarter: getQuarter(new Date()),
       });
-      await db.insert(autofacturas).values({
-        id: built.id,
-        commissionId: built.commissionId,
-        emisorId: built.emisorId,
-        amount: built.amount.toString(),
-        issuedAt: built.issuedAt,
-        // s3Key omitted until storage provider is configured
-      });
-      auditLog(`Autofactura created: ${built.id} for commission ${af.txId}`);
+      auditLog(`Pool contribution: ${poolAmount} for product ${productId} (${category}, ${getQuarter(new Date())})`);
     }
 
     return { success: true, data: { transactionIds } };
@@ -184,7 +253,6 @@ export async function requestWithdrawalAction(
       .where(eq(transactions.userId, memberId))
       .orderBy(desc(transactions.createdAt));
 
-    // Map DB rows to domain Transaction type (decimal → number, null → undefined)
     const domainTxs = txRows.map((row) => ({
       ...row,
       amount: parseFloat(row.amount),
@@ -204,7 +272,6 @@ export async function requestWithdrawalAction(
     }
 
     const txId = randomUUID();
-    // Most recent row is first (orderBy desc) — use its checksum as the previous link
     const previousChecksum = txRows[0]?.checksum ?? null;
     const checksum = walletService.generateChecksum(
       {

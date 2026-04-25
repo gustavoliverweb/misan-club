@@ -6,16 +6,14 @@ import { db } from "@/infra/db";
 import { users, processedExternalOrders } from "@/infra/db/schema";
 import { processSaleAction } from "@/app/actions/business-actions";
 
-const mdsPayloadSchema = z.object({
+const servicesPayloadSchema = z.object({
   external_order_id: z.string().min(1),
   member_email: z.string().email(),
-  net_amount: z.number().positive(),
-  category: z.enum(["standard", "proprietary", "reduced", "membership", "service"]),
+  commercial_margin: z.number().positive(),
 });
 
 function verifySignature(header: string, secret: string): boolean {
   try {
-    // Buffers must be same length for timingSafeEqual; pad with zeros if not.
     const a = Buffer.from(header);
     const b = Buffer.from(secret);
     if (a.length !== b.length) return false;
@@ -26,17 +24,17 @@ function verifySignature(header: string, secret: string): boolean {
 }
 
 function webhookLog(orderId: string, status: "Processed" | "Duplicate" | "Failed", detail?: string): void {
-  const line = `[WEBHOOK] Received from MDS - Order: ${orderId}, Status: ${status}${detail ? ` — ${detail}` : ""}`;
+  const line = `[WEBHOOK] Received from Services - Order: ${orderId}, Status: ${status}${detail ? ` — ${detail}` : ""}`;
   console.log(line);
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
   // ── 1. Signature check ────────────────────────────────────────────────────
   const signature = request.headers.get("x-misan-signature") ?? "";
-  const secret = process.env.MDS_WEBHOOK_SECRET ?? "";
+  const secret = process.env.SERVICES_WEBHOOK_SECRET ?? process.env.MDS_WEBHOOK_SECRET ?? "";
 
   if (!secret) {
-    console.error("[WEBHOOK] MDS_WEBHOOK_SECRET is not configured");
+    console.error("[WEBHOOK] SERVICES_WEBHOOK_SECRET is not configured");
     return Response.json({ error: "Server misconfiguration" }, { status: 500 });
   }
 
@@ -53,7 +51,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const parsed = mdsPayloadSchema.safeParse(body);
+  const parsed = servicesPayloadSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json(
       { error: parsed.error.issues[0].message },
@@ -61,7 +59,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     );
   }
 
-  const { external_order_id, member_email, net_amount, category } = parsed.data;
+  const { external_order_id, member_email, commercial_margin } = parsed.data;
 
   // ── 3. Idempotency check ──────────────────────────────────────────────────
   const existing = await db
@@ -72,7 +70,6 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   if (existing.length > 0) {
     webhookLog(external_order_id, "Duplicate");
-    // 200 so the sender stops retrying
     return Response.json({ ok: true, duplicate: true });
   }
 
@@ -91,24 +88,23 @@ export async function POST(request: NextRequest): Promise<Response> {
   const memberId = memberRows[0].id;
 
   // ── 5. Record idempotency key before processing ───────────────────────────
-  // Written first so a crash mid-processing doesn't leave a re-processable order.
   await db.insert(processedExternalOrders).values({
     externalOrderId: external_order_id,
     memberId,
   });
 
   // ── 6. Process sale ───────────────────────────────────────────────────────
+  // §3.1: saleAmountNet = 30% of commercialMargin (network commission base)
   const result = await processSaleAction({
     memberId,
     productId: crypto.randomUUID(),
-    category,
-    saleAmountNet: net_amount,
+    category: "service",
+    saleAmountNet: Math.round(commercial_margin * 0.3 * 100) / 100,
+    commercialMargin: commercial_margin,
   });
 
   if (!result.success) {
     webhookLog(external_order_id, "Failed", result.error);
-    // The idempotency row is already inserted; a retry will be treated as duplicate.
-    // Manual intervention is needed for genuine failures.
     return Response.json({ error: result.error }, { status: 500 });
   }
 

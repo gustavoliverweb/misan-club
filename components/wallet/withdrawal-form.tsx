@@ -11,22 +11,11 @@ interface WithdrawalFormProps {
   isWithdrawalWindow: boolean;
 }
 
-const fmt = new Intl.NumberFormat("es-ES", {
-  style: "currency",
-  currency: "EUR",
-});
+const fmt = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 
-export function WithdrawalForm({
-  balance,
-  kycStatus,
-  isWithdrawalWindow,
-}: WithdrawalFormProps) {
-  const [state, formAction, pending] = useActionState(
-    requestWithdrawalFormAction,
-    undefined,
-  );
+export function WithdrawalForm({ balance, kycStatus, isWithdrawalWindow }: WithdrawalFormProps) {
+  const [state, formAction, pending] = useActionState(requestWithdrawalFormAction, undefined);
 
-  // Determine which restriction applies (first match wins)
   const restriction =
     kycStatus !== "verified"
       ? "Verifica tu identidad (KYC) para poder retirar fondos."
@@ -40,8 +29,8 @@ export function WithdrawalForm({
     return (
       <div className="flex flex-col items-center gap-2 py-6 text-center">
         <CheckCircle2 size={36} className="text-green-500" />
-        <p className="font-medium text-green-700">Solicitud enviada</p>
-        <p className="text-sm text-gray-500">
+        <p className="font-medium text-fg">Solicitud enviada</p>
+        <p className="text-sm text-muted">
           Tu retiro está en proceso. Se acreditará en los próximos días hábiles.
         </p>
       </div>
@@ -50,9 +39,9 @@ export function WithdrawalForm({
 
   if (restriction) {
     return (
-      <div className="flex items-start gap-3 rounded-lg bg-gray-50 p-4">
-        <Lock size={18} className="mt-0.5 shrink-0 text-gray-400" />
-        <p className="text-sm text-gray-600">{restriction}</p>
+      <div className="flex items-start gap-3 rounded-lg border border-border bg-subtle p-4">
+        <Lock size={16} className="mt-0.5 shrink-0 text-faint" />
+        <p className="text-sm text-muted">{restriction}</p>
       </div>
     );
   }
@@ -62,7 +51,7 @@ export function WithdrawalForm({
       <div>
         <label
           htmlFor="withdrawal-amount"
-          className="mb-1 block text-sm font-medium text-gray-700"
+          className="mb-1.5 block text-sm font-medium text-fg"
         >
           Importe a retirar (mín. 50,00 €)
         </label>
@@ -76,21 +65,21 @@ export function WithdrawalForm({
             step="0.01"
             required
             placeholder="0,00"
-            className="w-full rounded-lg border border-gray-300 py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+            className="w-full rounded-lg border border-border bg-card py-2 pl-3 pr-10 text-sm text-fg placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-accent/40"
           />
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-faint">
             EUR
           </span>
         </div>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1.5 text-xs text-faint">
           Saldo disponible: {fmt.format(balance)}
         </p>
       </div>
 
       {state?.error && (
-        <div className="flex items-start gap-2 rounded-lg bg-red-50 p-3">
+        <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
           <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-500" />
-          <p className="text-sm text-red-700">{state.error}</p>
+          <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
         </div>
       )}
 

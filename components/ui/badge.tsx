@@ -3,10 +3,14 @@ import { cn } from "@/lib/utils";
 type Variant = "success" | "warning" | "error" | "neutral";
 
 const variants: Record<Variant, string> = {
-  success: "bg-green-100 text-green-800 border-green-200",
-  warning: "bg-amber-100 text-amber-800 border-amber-200",
-  error: "bg-red-100 text-red-800 border-red-200",
-  neutral: "bg-gray-100 text-gray-700 border-gray-200",
+  success:
+    "bg-green-500/10 text-green-600 border-green-500/20 dark:text-green-400 dark:border-green-400/20",
+  warning:
+    "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400 dark:border-amber-400/20",
+  error:
+    "bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-400 dark:border-red-400/20",
+  neutral:
+    "bg-subtle text-muted border-border",
 };
 
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
@@ -19,7 +23,7 @@ export function Badge({ className, variant = "neutral", ...props }: BadgeProps) 
       className={cn(
         "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
         variants[variant],
-        className
+        className,
       )}
       {...props}
     />

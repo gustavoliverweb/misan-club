@@ -4,15 +4,25 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:all": "concurrently -n \"next,stripe\" -c \"cyan,yellow\" \"next dev\" \"stripe listen --forward-to localhost:3000/api/webhooks/stripe\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run tests/unit",
+    "test:watch": "vitest tests/unit",
     "test:coverage": "vitest run tests/unit --coverage",
-    "test:integration": "vitest run tests/integration",
+    "test:integration": "node --env-file=.env ./node_modules/.bin/vitest run tests/integration",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "npx tsx --env-file=.env infra/db/seed.ts"
+    "db:migrate:apply": "node --env-file=.env scripts/db.mjs migrate:apply",
+    "db:seed": "npx tsx --env-file=.env infra/db/seed.ts",
+    "db:console": "node --env-file=.env scripts/db.mjs console",
+    "db:check": "node --env-file=.env scripts/db.mjs check",
+    "db:activate": "node --env-file=.env scripts/db.mjs activate-member",
+    "stripe:listen": "stripe listen --forward-to localhost:3000/api/webhooks/stripe",
+    "stripe:trigger": "stripe trigger checkout.session.completed",
+    "webhook:mds": "bash scripts/test-webhook.sh",
+    "webhook:services": "bash scripts/test-webhook-services.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1032.0",
@@ -27,6 +37,7 @@
     "postgres": "^3.4.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "stripe": "^22.1.0",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
   },
@@ -38,6 +49,7 @@
     "@types/react-dom": "^19",
     "@types/react-pdf": "^6.2.0",
     "@vitest/coverage-v8": "^4.1.4",
+    "concurrently": "^9.2.1",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
