@@ -150,32 +150,72 @@ export const processedExternalOrders = pgTable("processed_external_orders", {
 
 export const usersRelations = relations(users, ({ one, many }) => ({
   networkNode: one(networkHierarchy, {
+    relationName: "user_as_member",
     fields: [users.id],
     references: [networkHierarchy.memberId],
   }),
   memberships: many(memberships),
   transactions: many(transactions),
-  kycSubmissions: many(kycSubmissions),
+  kycSubmissions: many(kycSubmissions, { relationName: "author" }),
+  reviewedDocs: many(kycSubmissions, { relationName: "reviewer" }),
 }));
 
 export const kycSubmissionsRelations = relations(kycSubmissions, ({ one }) => ({
-  user: one(users, { fields: [kycSubmissions.userId], references: [users.id] }),
-  reviewer: one(users, { fields: [kycSubmissions.reviewedBy], references: [users.id] }),
+  user: one(users, {
+    fields: [kycSubmissions.userId],
+    references: [users.id],
+    relationName: "author",
+  }),
+  reviewer: one(users, {
+    fields: [kycSubmissions.reviewedBy],
+    references: [users.id],
+    relationName: "reviewer",
+  }),
 }));
 
 export const autofacturasRelations = relations(autofacturas, ({ one }) => ({
-  emisor: one(users, { fields: [autofacturas.emisorId], references: [users.id] }),
+  emisor: one(users, {
+    fields: [autofacturas.emisorId],
+    references: [users.id],
+  }),
 }));
 
 export const networkHierarchyRelations = relations(
   networkHierarchy,
   ({ one }) => ({
     member: one(users, {
+      relationName: "user_as_member",
       fields: [networkHierarchy.memberId],
       references: [users.id],
     }),
     sponsor: one(users, {
+      relationName: "user_as_sponsor",
       fields: [networkHierarchy.sponsorId],
+      references: [users.id],
+    }),
+  }),
+);
+
+// Añade estas definiciones que faltan en tu esquema
+export const membershipsRelations = relations(memberships, ({ one }) => ({
+  user: one(users, {
+    fields: [memberships.userId],
+    references: [users.id],
+  }),
+}));
+
+export const transactionsRelations = relations(transactions, ({ one }) => ({
+  user: one(users, {
+    fields: [transactions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const processedExternalOrdersRelations = relations(
+  processedExternalOrders,
+  ({ one }) => ({
+    member: one(users, {
+      fields: [processedExternalOrders.memberId],
       references: [users.id],
     }),
   }),
