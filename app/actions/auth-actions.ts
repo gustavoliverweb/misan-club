@@ -75,7 +75,6 @@ export async function registerAction(
 
   let sponsorId: string | null = null;
 
-  console.log("Código de referido proporcionado:", ref);
   if (ref) {
     const sponsor = await db
       .select({ id: users.id })
@@ -83,17 +82,6 @@ export async function registerAction(
       .where(eq(users.id, ref))
       .limit(1);
     if (sponsor[0]) sponsorId = sponsor[0].id;
-  }
-
-  if (!sponsorId) {
-    const corporateEmail =
-      process.env.CORPORATE_SPONSOR_EMAIL ?? "admin@misanclub.com";
-    const admin = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, corporateEmail))
-      .limit(1);
-    if (admin[0]) sponsorId = admin[0].id;
   }
 
   const [newUser] = await db
@@ -111,21 +99,21 @@ export async function registerAction(
     return { error: "No se pudo crear la cuenta. Intenta de nuevo." };
   }
 
-  const sponsorNode = sponsorId
-    ? await db
-        .select({ depth: networkHierarchy.depth })
-        .from(networkHierarchy)
-        .where(eq(networkHierarchy.memberId, sponsorId))
-        .limit(1)
-    : [];
+  if (sponsorId) {
+    const sponsorNode = await db
+      .select({ depth: networkHierarchy.depth })
+      .from(networkHierarchy)
+      .where(eq(networkHierarchy.memberId, sponsorId))
+      .limit(1);
 
-  const newDepth = sponsorNode[0] ? sponsorNode[0].depth + 1 : 0;
+    const newDepth = sponsorNode[0] ? sponsorNode[0].depth + 1 : 1;
 
-  await db.insert(networkHierarchy).values({
-    memberId: newUser.id,
-    sponsorId,
-    depth: newDepth,
-  });
+    await db.insert(networkHierarchy).values({
+      memberId: newUser.id,
+      sponsorId,
+      depth: newDepth,
+    });
+  }
 
   await signIn("credentials", {
     email,
