@@ -9,7 +9,7 @@ if (!connectionString) {
 
 const client = postgres(connectionString, {
   ssl: "require",
-  max: 1, // Para migraciones y Studio, limita a 1 conexión para evitar bloqueos
+  max: 10,
   idle_timeout: 20,
   connect_timeout: 10,
 });

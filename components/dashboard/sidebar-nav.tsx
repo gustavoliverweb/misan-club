@@ -8,8 +8,11 @@ import {
   Wallet,
   Settings,
   ShieldCheck,
+  Share2,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 const NAV_ITEMS = [
   { href: "/dashboard",  label: "Inicio",        icon: LayoutDashboard },
@@ -18,10 +21,22 @@ const NAV_ITEMS = [
   { href: "/settings",   label: "Configuración", icon: Settings },
 ];
 
-interface Props { role?: string }
+interface Props {
+  role?: string;
+  userId?: string;
+}
 
-export function SidebarNav({ role }: Props) {
+export function SidebarNav({ role, userId }: Props) {
   const pathname = usePathname();
+  const [copied, setCopied] = useState(false);
+
+  function copyReferralLink() {
+    const base = window.location.origin;
+    navigator.clipboard.writeText(`${base}/register?ref=${userId}`).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   return (
     <nav className="flex flex-col gap-0.5 px-2">
@@ -50,6 +65,20 @@ export function SidebarNav({ role }: Props) {
           </Link>
         );
       })}
+
+      <div className="mx-3 my-2 border-t border-border" />
+
+      <button
+        onClick={copyReferralLink}
+        className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-normal text-muted transition-colors hover:bg-hover hover:text-fg w-full text-left"
+      >
+        {copied ? (
+          <Check size={15} strokeWidth={1.75} className="text-accent" />
+        ) : (
+          <Share2 size={15} strokeWidth={1.75} />
+        )}
+        {copied ? "¡Enlace copiado!" : "Compartir mi enlace"}
+      </button>
 
       {role === "admin" && (
         <>

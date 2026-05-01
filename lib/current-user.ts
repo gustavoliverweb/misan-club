@@ -37,6 +37,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!rows[0]) return null;
 
   const user = rows[0];
+  console.log("Fetched user from DB:", user);
 
   const membershipRows = await db
     .select({

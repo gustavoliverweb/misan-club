@@ -3,6 +3,7 @@ import { Settings as SettingsIcon } from "lucide-react";
 import { getCurrentUser } from "@/lib/current-user";
 import { BentoCard } from "@/components/ui/bento-card";
 import { Badge } from "@/components/ui/badge";
+import { AutoRenewToggle } from "@/components/dashboard/auto-renew-toggle";
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
@@ -67,6 +68,41 @@ export default async function SettingsPage() {
           </div>
         </dl>
       </BentoCard>
+
+      {/* Membership card */}
+      {user.membership && (
+        <BentoCard>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted">
+            Membresía
+          </p>
+          <dl className="mt-4 divide-y divide-border">
+            <div className="flex items-center justify-between py-3">
+              <dt className="text-sm text-muted">Estado</dt>
+              <dd>
+                <Badge variant={user.membership.status === "active" ? "success" : "error"}>
+                  {user.membership.status === "active" ? "Activa" : "Expirada"}
+                </Badge>
+              </dd>
+            </div>
+            <div className="flex items-center justify-between py-3">
+              <dt className="text-sm text-muted">Expira</dt>
+              <dd className="text-sm text-fg">
+                {user.membership.expiresAt.toLocaleDateString("es-ES", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between py-3">
+              <dt className="text-sm text-muted">Renovación automática</dt>
+              <dd>
+                <AutoRenewToggle initialValue={user.membership.autoRenew} />
+              </dd>
+            </div>
+          </dl>
+        </BentoCard>
+      )}
 
       {/* Placeholder */}
       <BentoCard className="flex items-center gap-3">

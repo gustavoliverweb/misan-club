@@ -1,12 +1,10 @@
-import { randomUUID } from "crypto";
-import { desc, eq } from "drizzle-orm";
 import type { Stripe } from "stripe";
+import { eq } from "drizzle-orm";
 import { stripe } from "@/infra/stripe";
 import { db } from "@/infra/db";
 import {
   memberships,
   processedExternalOrders,
-  transactions,
 } from "@/infra/db/schema";
 import { MembershipRenewalService } from "@/core/services/membership-renewal.service";
 
@@ -75,44 +73,10 @@ export async function POST(req: Request) {
     newExpiresAt = renewalService.calculateNewExpiry(membershipRows[0].expiresAt);
   }
 
-  // Fetch last checksum for ledger chaining
-  const lastTx = await db
-    .select({ checksum: transactions.checksum })
-    .from(transactions)
-    .where(eq(transactions.userId, userId))
-    .orderBy(desc(transactions.createdAt))
-    .limit(1);
-
-  const txId = randomUUID();
-  const amount = (session.amount_total ?? 3000) / 100;
-
-  // Minimal checksum — no WalletService import to avoid server-bundle cycle
-  const { createHash } = await import("crypto");
-  const checksumPayload = JSON.stringify({
-    id: txId,
-    userId,
-    amount,
-    type: "debit",
-    referenceId: null,
-    previousChecksum: lastTx[0]?.checksum ?? null,
-  });
-  const checksum = createHash("sha256").update(checksumPayload).digest("hex");
-
   await db.transaction(async (tx) => {
     await tx.insert(processedExternalOrders).values({
       externalOrderId: session.id,
       memberId: userId,
-    });
-
-    await tx.insert(transactions).values({
-      id: txId,
-      userId,
-      amount: amount.toFixed(2),
-      type: "debit",
-      description: isFirstActivation
-        ? "Activación de membresía vía Stripe"
-        : "Renovación de membresía vía Stripe",
-      checksum,
     });
 
     if (isFirstActivation) {

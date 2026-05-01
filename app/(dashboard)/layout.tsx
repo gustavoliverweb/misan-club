@@ -39,7 +39,7 @@ export default async function DashboardLayout({
 
         {/* Nav */}
         <div className="flex-1 overflow-y-auto py-3">
-          <SidebarNav role={user.role} />
+          <SidebarNav role={user.role} userId={user.id} />
         </div>
 
         {/* Footer */}

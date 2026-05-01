@@ -134,12 +134,28 @@ export async function processSaleAction(
 
       // Spec 02: all ledger inserts must be atomic — a single level failure rolls back everything
       await db.transaction(async (tx) => {
+        // Pre-load the latest checksum per recipient using tx so reads are within
+        // the same transaction isolation. We track the running checksum manually
+        // to correctly chain multiple inserts for the same user in one sale.
+        const latestChecksums = new Map<string, string | null>();
+        for (const commission of distribution.commissions) {
+          const recipient = activeUpline[commission.level - 1];
+          if (!recipient || latestChecksums.has(recipient.memberId)) continue;
+          const rows = await tx
+            .select({ checksum: transactions.checksum })
+            .from(transactions)
+            .where(eq(transactions.userId, recipient.memberId))
+            .orderBy(desc(transactions.createdAt))
+            .limit(1);
+          latestChecksums.set(recipient.memberId, rows[0]?.checksum ?? null);
+        }
+
         for (const commission of distribution.commissions) {
           const recipient = activeUpline[commission.level - 1];
           if (!recipient) continue;
 
           const txId = randomUUID();
-          const previousChecksum = await getLastChecksum(recipient.memberId);
+          const previousChecksum = latestChecksums.get(recipient.memberId) ?? null;
           const description = `Comisión nivel ${commission.level} — venta ${productId}`;
           const checksum = walletService.generateChecksum(
             {
@@ -163,6 +179,9 @@ export async function processSaleAction(
             productCategory: category,
             checksum,
           });
+
+          // Update running checksum so the next insert for this user chains correctly
+          latestChecksums.set(recipient.memberId, checksum);
 
           transactionIds.push(txId);
           afInputs.push({
