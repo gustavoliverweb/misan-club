@@ -23,12 +23,13 @@ export function RegisterForm({ sponsorRef }: { sponsorRef?: string }) {
 
   return (
     <form action={action} className="space-y-4">
-      {sponsorRef && (
-        <input type="hidden" name="ref" value={sponsorRef} />
-      )}
+      {sponsorRef && <input type="hidden" name="ref" value={sponsorRef} />}
 
       <div>
-        <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
+        <label
+          htmlFor="fullName"
+          className="block text-sm font-medium text-gray-700"
+        >
           Nombre completo
         </label>
         <input
@@ -37,12 +38,15 @@ export function RegisterForm({ sponsorRef }: { sponsorRef?: string }) {
           type="text"
           required
           autoComplete="name"
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-black shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+        <label
+          htmlFor="email"
+          className="block text-sm font-medium text-gray-700"
+        >
           Email
         </label>
         <input
@@ -51,12 +55,15 @@ export function RegisterForm({ sponsorRef }: { sponsorRef?: string }) {
           type="email"
           required
           autoComplete="email"
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-black shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+        <label
+          htmlFor="password"
+          className="block text-sm font-medium text-gray-700"
+        >
           Contraseña
         </label>
         <input
@@ -65,7 +72,7 @@ export function RegisterForm({ sponsorRef }: { sponsorRef?: string }) {
           type="password"
           required
           autoComplete="new-password"
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-black shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
         <p className="mt-1 text-xs text-gray-400">Mínimo 8 caracteres.</p>
       </div>
@@ -86,7 +93,10 @@ export function RegisterForm({ sponsorRef }: { sponsorRef?: string }) {
 
       <p className="text-center text-sm text-gray-500">
         ¿Ya tienes cuenta?{" "}
-        <Link href="/login" className="font-medium text-blue-600 hover:underline">
+        <Link
+          href="/login"
+          className="font-medium text-blue-600 hover:underline"
+        >
           Inicia sesión
         </Link>
       </p>
