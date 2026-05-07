@@ -2,6 +2,7 @@
 
 import { eq, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { auth } from "@/auth";
 import { db } from "@/infra/db";
 import { autofacturas, transactions, users, poolContributions } from "@/infra/db/schema";
 import { getActiveUpline } from "@/infra/db/queries/upline";
@@ -239,12 +240,22 @@ export async function processSaleAction(
 export async function requestWithdrawalAction(
   input: unknown,
 ): Promise<ActionResult<{ transactionId: string }>> {
+  // Security: always derive identity from the verified session, never from user input.
+  // An exported "use server" function is a public HTTP endpoint — any authenticated
+  // user could POST with an arbitrary memberId and drain another user's wallet.
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "No autenticado." };
+  }
+
   const parsed = withdrawalSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
   }
 
-  const { memberId, amount } = parsed.data;
+  // memberId from input is intentionally ignored — session.user.id is authoritative.
+  const memberId = session.user.id;
+  const { amount } = parsed.data;
 
   try {
     const userRows = await db
