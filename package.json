@@ -15,6 +15,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:apply": "node --env-file=.env scripts/db.mjs migrate:apply",
+    "db:migrate:sql": "node --env-file=.env scripts/db.mjs migrate",
     "db:seed": "npx tsx --env-file=.env infra/db/seed.ts",
     "db:console": "node --env-file=.env scripts/db.mjs console",
     "db:check": "node --env-file=.env scripts/db.mjs check",

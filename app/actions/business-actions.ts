@@ -80,6 +80,8 @@ export async function processSaleAction(
   } = parsed.data;
 
   const config = CATEGORY_CONFIG[category];
+  const levelPercentages = parsed.data.customLevelPercentages ?? config.levelPercentages;
+  const poolRate = parsed.data.customPoolRate ?? config.poolRate;
 
   // Spec 05 §3.1 — for service, 70% goes directly to the seller; 30% is the network base
   const baseForCommissions =
@@ -121,13 +123,11 @@ export async function processSaleAction(
         `Sale by ${memberId}: no active upline — full commission goes to reserve fund`,
       );
     } else {
-      const levelPercentages = config.levelPercentages.slice(0, activeUpline.length);
-
       // Pure calculation — no DB calls (marginFactor always 1; category rates are in levelPercentages)
       const distribution = commissionService.calculate({
         saleAmountNet: baseForCommissions,
         marginFactor: 1,
-        levelPercentages: [...levelPercentages],
+        levelPercentages: [...levelPercentages.slice(0, activeUpline.length)],
       });
 
       type AfInput = { txId: string; emisorId: string; emisorName: string; amount: number };
@@ -217,7 +217,7 @@ export async function processSaleAction(
     }
 
     // ── Pool contribution — outside the SQL transaction (same isolation pattern as autofacturas) ──
-    const poolAmount = Math.round(baseForCommissions * config.poolRate * 100) / 100;
+    const poolAmount = Math.round(baseForCommissions * poolRate * 100) / 100;
     if (poolAmount > 0) {
       await db.insert(poolContributions).values({
         productId,

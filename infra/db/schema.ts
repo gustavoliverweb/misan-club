@@ -220,3 +220,26 @@ export const processedExternalOrdersRelations = relations(
     }),
   }),
 );
+
+export const products = pgTable("products", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  descripcion: text("descripcion"),
+  categoria: varchar("categoria", { length: 100 }).notNull(),
+  subcategoria: varchar("subcategoria", { length: 100 }),
+  marca: varchar("marca", { length: 100 }),
+  imagen: varchar("imagen", { length: 500 }),
+  precioPublico: decimal("precio_publico", { precision: 10, scale: 2 }).notNull(),
+  precioSocio: decimal("precio_socio", { precision: 10, scale: 2 }).notNull(),
+  commissionCategory: productCategoryEnum("commission_category").notNull().default("standard"),
+  porcentajeN1: decimal("porcentaje_n1", { precision: 5, scale: 4 }).notNull().default("0.0500"),
+  porcentajeN2: decimal("porcentaje_n2", { precision: 5, scale: 4 }).notNull().default("0.0300"),
+  porcentajeN3: decimal("porcentaje_n3", { precision: 5, scale: 4 }).notNull().default("0.0200"),
+  porcentajeN4: decimal("porcentaje_n4", { precision: 5, scale: 4 }).notNull().default("0.0100"),
+  porcentajeN5: decimal("porcentaje_n5", { precision: 5, scale: 4 }).notNull().default("0.0100"),
+  porcentajePool: decimal("porcentaje_pool", { precision: 5, scale: 4 }).notNull().default("0.0500"),
+  participaEnPool: boolean("participa_en_pool").notNull().default(true),
+  generaAutofactura: boolean("genera_autofactura").notNull().default(true),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

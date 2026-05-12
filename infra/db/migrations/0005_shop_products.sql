@@ -1,0 +1,66 @@
+CREATE TABLE "products" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"nombre" varchar(255) NOT NULL,
+	"descripcion" text,
+	"categoria" varchar(100) NOT NULL,
+	"subcategoria" varchar(100),
+	"marca" varchar(100),
+	"imagen" varchar(500),
+	"precio_publico" numeric(10, 2) NOT NULL,
+	"precio_socio" numeric(10, 2) NOT NULL,
+	"commission_category" "product_category" NOT NULL DEFAULT 'standard',
+	"porcentaje_n1" numeric(5, 4) NOT NULL DEFAULT 0.0500,
+	"porcentaje_n2" numeric(5, 4) NOT NULL DEFAULT 0.0300,
+	"porcentaje_n3" numeric(5, 4) NOT NULL DEFAULT 0.0200,
+	"porcentaje_n4" numeric(5, 4) NOT NULL DEFAULT 0.0100,
+	"porcentaje_n5" numeric(5, 4) NOT NULL DEFAULT 0.0100,
+	"porcentaje_pool" numeric(5, 4) NOT NULL DEFAULT 0.0500,
+	"participa_en_pool" boolean NOT NULL DEFAULT true,
+	"genera_autofactura" boolean NOT NULL DEFAULT true,
+	"active" boolean NOT NULL DEFAULT true,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+
+INSERT INTO "products" ("nombre", "descripcion", "categoria", "subcategoria", "marca", "precio_publico", "precio_socio", "commission_category", "porcentaje_n1", "porcentaje_n2", "porcentaje_n3", "porcentaje_n4", "porcentaje_n5", "porcentaje_pool", "participa_en_pool", "genera_autofactura") VALUES
+(
+  'Botella Hidrogenadora Portátil NOK',
+  'Botella de agua hidrogenada portátil. Genera agua rica en hidrógeno molecular en minutos. Perfecta para deportistas y uso diario.',
+  'bienestar-en-casa',
+  'agua/agua-hidrogenada',
+  'NOK',
+  695.00,
+  565.00,
+  'standard',
+  0.0500, 0.0300, 0.0200, 0.0100, 0.0100,
+  0.0500,
+  true,
+  true
+),
+(
+  'Jarra Hydrowater Nature Cyclone',
+  'Jarra filtrante de agua hidrogenada con tecnología Cyclone. Capacidad 2L. Mineralización y enriquecimiento con hidrógeno molecular activo.',
+  'bienestar-en-casa',
+  'agua/agua-hidrogenada',
+  'Hydrowater',
+  2795.00,
+  2230.00,
+  'standard',
+  0.0500, 0.0300, 0.0200, 0.0100, 0.0100,
+  0.0500,
+  true,
+  true
+),
+(
+  'Ósmosis Detox H2 600G Flujo Directo + Hidrógeno',
+  'Sistema de ósmosis inversa de alto rendimiento 600 GPD con módulo de hidrógeno integrado. Elimina impurezas y enriquece el agua con H2.',
+  'bienestar-en-casa',
+  'agua/agua-hidrogenada',
+  'Detox H2',
+  3495.00,
+  2850.00,
+  'standard',
+  0.0500, 0.0300, 0.0200, 0.0100, 0.0100,
+  0.0500,
+  true,
+  true
+);

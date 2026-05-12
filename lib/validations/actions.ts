@@ -20,6 +20,11 @@ export const purchaseSchema = z
     isPublicSale: z.boolean().default(false),
     // PrecioPublico - PrecioSocio; passed when isPublicSale is true
     directMarginAmount: z.number().positive().optional(),
+    // Per-product overrides — when omitted, CATEGORY_CONFIG defaults apply
+    customLevelPercentages: z
+      .tuple([z.number(), z.number(), z.number(), z.number(), z.number()])
+      .optional(),
+    customPoolRate: z.number().min(0).max(1).optional(),
   })
   .refine(
     (d) => d.category !== "service" || d.commercialMargin !== undefined,
@@ -31,5 +36,26 @@ export const withdrawalSchema = z.object({
   amount: z.number().min(50, "Minimum withdrawal amount is 50 EUR"),
 });
 
+export const createProductSchema = z.object({
+  nombre: z.string().min(1, "Nombre requerido").max(255),
+  descripcion: z.string().optional(),
+  categoria: z.string().min(1, "Categoría requerida").max(100),
+  subcategoria: z.string().max(100).optional(),
+  marca: z.string().max(100).optional(),
+  imagen: z.string().max(500).optional(),
+  precioPublico: z.number().positive("Precio público debe ser positivo"),
+  precioSocio: z.number().positive("Precio socio debe ser positivo"),
+  commissionCategory: z.enum(productCategoryValues),
+  porcentajeN1: z.number().min(0).max(1),
+  porcentajeN2: z.number().min(0).max(1),
+  porcentajeN3: z.number().min(0).max(1),
+  porcentajeN4: z.number().min(0).max(1),
+  porcentajeN5: z.number().min(0).max(1),
+  porcentajePool: z.number().min(0).max(1),
+  participaEnPool: z.boolean().default(true),
+  generaAutofactura: z.boolean().default(true),
+});
+
 export type PurchaseInput = z.infer<typeof purchaseSchema>;
 export type WithdrawalInput = z.infer<typeof withdrawalSchema>;
+export type CreateProductInput = z.infer<typeof createProductSchema>;

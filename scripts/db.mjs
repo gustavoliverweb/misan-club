@@ -68,6 +68,21 @@ switch (cmd) {
     break;
   }
 
+  case "migrate": {
+    const file = process.argv[3];
+    if (!file) {
+      console.error("Usage: db:migrate <migration-file.sql>");
+      process.exit(1);
+    }
+    const sql = readFileSync(file, "utf8").replace(/--> statement-breakpoint/g, ";");
+    execSync(`psql "${url}"`, {
+      input: sql,
+      stdio: ["pipe", "inherit", "inherit"],
+    });
+    console.log(`✓ Migración ${file} aplicada.`);
+    break;
+  }
+
   case "activate-member": {
     const email = process.argv[3];
     if (!email) {
@@ -87,7 +102,7 @@ switch (cmd) {
   default:
     console.error(`Comando desconocido: "${cmd}"`);
     console.error(
-      "Disponibles: console | check | migrate:apply | activate-member <email>",
+      "Disponibles: console | check | migrate:apply | migrate <file.sql> | activate-member <email>",
     );
     process.exit(1);
 }
