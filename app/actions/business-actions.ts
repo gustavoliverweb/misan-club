@@ -16,14 +16,28 @@ const commissionService = new CommissionService();
 const walletService = new WalletService();
 const autofacturaService = new AutofacturaService();
 
+const withdrawalAttempts = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 5;
+
+function checkWithdrawalRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const existing = withdrawalAttempts.get(userId);
+  if (!existing || now - existing.windowStart > RATE_LIMIT_WINDOW_MS) {
+    withdrawalAttempts.set(userId, { count: 1, windowStart: now });
+    return true;
+  }
+  if (existing.count >= RATE_LIMIT_MAX) return false;
+  existing.count++;
+  return true;
+}
+
 type ActionResult<T = undefined> =
   | { success: true; data: T }
   | { success: false; error: string };
 
 function auditLog(message: string): void {
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[WALLET] ${message}`);
-  }
+  console.log(`[WALLET] ${message}`);
 }
 
 async function getLastChecksum(userId: string): Promise<string | null> {
@@ -197,35 +211,44 @@ export async function processSaleAction(
         }
       });
 
-      // Spec 04 §4.2: autofacturas outside the SQL transaction so PDF failure never rolls back the ledger
+      // Spec 04 §4.2: autofacturas outside the SQL transaction so a DB failure never rolls back the ledger.
+      // Each insert is isolated so one failure doesn't block the rest.
       for (const af of afInputs) {
-        const built = autofacturaService.build({
-          commissionId: af.txId,
-          emisorId: af.emisorId,
-          emisorName: af.emisorName,
-          amount: af.amount,
-        });
-        await db.insert(autofacturas).values({
-          id: built.id,
-          commissionId: built.commissionId,
-          emisorId: built.emisorId,
-          amount: built.amount.toString(),
-          issuedAt: built.issuedAt,
-        });
-        auditLog(`Autofactura created: ${built.id} for commission ${af.txId}`);
+        try {
+          const built = autofacturaService.build({
+            commissionId: af.txId,
+            emisorId: af.emisorId,
+            emisorName: af.emisorName,
+            amount: af.amount,
+          });
+          await db.insert(autofacturas).values({
+            id: built.id,
+            commissionId: built.commissionId,
+            emisorId: built.emisorId,
+            amount: built.amount.toString(),
+            issuedAt: built.issuedAt,
+          });
+          auditLog(`Autofactura created: ${built.id} for commission ${af.txId}`);
+        } catch (err) {
+          console.error(`[WALLET] Autofactura insert failed for commission ${af.txId}:`, err instanceof Error ? err.message : err);
+        }
       }
     }
 
     // ── Pool contribution — outside the SQL transaction (same isolation pattern as autofacturas) ──
     const poolAmount = Math.round(baseForCommissions * poolRate * 100) / 100;
     if (poolAmount > 0) {
-      await db.insert(poolContributions).values({
-        productId,
-        category,
-        amount: poolAmount.toString(),
-        quarter: getQuarter(new Date()),
-      });
-      auditLog(`Pool contribution: ${poolAmount} for product ${productId} (${category}, ${getQuarter(new Date())})`);
+      try {
+        await db.insert(poolContributions).values({
+          productId,
+          category,
+          amount: poolAmount.toString(),
+          quarter: getQuarter(new Date()),
+        });
+        auditLog(`Pool contribution: ${poolAmount} for product ${productId} (${category}, ${getQuarter(new Date())})`);
+      } catch (err) {
+        console.error(`[WALLET] Pool contribution failed for product ${productId}:`, err instanceof Error ? err.message : err);
+      }
     }
 
     return { success: true, data: { transactionIds } };
@@ -257,78 +280,86 @@ export async function requestWithdrawalAction(
   const memberId = session.user.id;
   const { amount } = parsed.data;
 
+  if (!checkWithdrawalRateLimit(memberId)) {
+    return { success: false, error: "RATE_LIMIT_EXCEEDED" };
+  }
+
   try {
-    const userRows = await db
-      .select({ kycStatus: users.kycStatus })
-      .from(users)
-      .where(eq(users.id, memberId))
-      .limit(1);
+    // CRÍTICO 2 fix: wrap the entire read→validate→insert sequence in a single
+    // transaction. The SELECT … FOR UPDATE on the user row acquires a row-level
+    // lock so a second concurrent withdrawal for this user blocks here until the
+    // first transaction commits. When it unblocks it re-reads the updated balance,
+    // preventing double-spend (TOCTOU race).
+    const transactionId = await db.transaction(async (tx) => {
+      const userRows = await tx
+        .select({ kycStatus: users.kycStatus })
+        .from(users)
+        .where(eq(users.id, memberId))
+        .for("update")
+        .limit(1);
 
-    if (!userRows[0]) {
-      return { success: false, error: "User not found" };
-    }
+      if (!userRows[0]) throw new Error("User not found");
 
-    const txRows = await db
-      .select({
-        id: transactions.id,
-        userId: transactions.userId,
-        amount: transactions.amount,
-        type: transactions.type,
-        description: transactions.description,
-        referenceId: transactions.referenceId,
-        checksum: transactions.checksum,
-        createdAt: transactions.createdAt,
-      })
-      .from(transactions)
-      .where(eq(transactions.userId, memberId))
-      .orderBy(desc(transactions.createdAt));
+      const txRows = await tx
+        .select({
+          id: transactions.id,
+          userId: transactions.userId,
+          amount: transactions.amount,
+          type: transactions.type,
+          description: transactions.description,
+          referenceId: transactions.referenceId,
+          checksum: transactions.checksum,
+          createdAt: transactions.createdAt,
+        })
+        .from(transactions)
+        .where(eq(transactions.userId, memberId))
+        .orderBy(desc(transactions.createdAt));
 
-    const domainTxs = txRows.map((row) => ({
-      ...row,
-      amount: parseFloat(row.amount),
-      referenceId: row.referenceId ?? undefined,
-    }));
+      const domainTxs = txRows.map((row) => ({
+        ...row,
+        amount: parseFloat(row.amount),
+        referenceId: row.referenceId ?? undefined,
+      }));
 
-    const balance = walletService.computeBalance(domainTxs);
+      const balance = walletService.computeBalance(domainTxs);
 
-    const validation = walletService.validateWithdrawal(
-      { userId: memberId, amount, requestedAt: new Date() },
-      userRows[0].kycStatus,
-      balance,
-    );
+      const validation = walletService.validateWithdrawal(
+        { userId: memberId, amount, requestedAt: new Date() },
+        userRows[0].kycStatus,
+        balance,
+      );
 
-    if (!validation.ok) {
-      return { success: false, error: validation.reason };
-    }
+      if (!validation.ok) throw new Error(validation.reason);
 
-    const txId = randomUUID();
-    const previousChecksum = txRows[0]?.checksum ?? null;
-    const checksum = walletService.generateChecksum(
-      {
+      const txId = randomUUID();
+      const previousChecksum = txRows[0]?.checksum ?? null;
+      const checksum = walletService.generateChecksum(
+        {
+          id: txId,
+          userId: memberId,
+          amount,
+          type: "debit",
+          description: "Solicitud de retiro",
+          referenceId: undefined,
+        },
+        previousChecksum,
+      );
+
+      await tx.insert(transactions).values({
         id: txId,
         userId: memberId,
-        amount,
+        amount: amount.toString(),
         type: "debit",
         description: "Solicitud de retiro",
-        referenceId: undefined,
-      },
-      previousChecksum,
-    );
+        checksum,
+      });
 
-    await db.insert(transactions).values({
-      id: txId,
-      userId: memberId,
-      amount: amount.toString(),
-      type: "debit",
-      description: "Solicitud de retiro",
-      checksum,
+      auditLog(`Debit: User ${memberId}, Amount ${amount}, Reason: Withdrawal request`);
+
+      return txId;
     });
 
-    auditLog(
-      `Debit: User ${memberId}, Amount ${amount}, Reason: Withdrawal request`,
-    );
-
-    return { success: true, data: { transactionId: txId } };
+    return { success: true, data: { transactionId } };
   } catch (err) {
     return {
       success: false,

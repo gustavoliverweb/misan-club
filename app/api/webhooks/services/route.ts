@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
 import { z } from "zod";
@@ -12,10 +12,11 @@ const servicesPayloadSchema = z.object({
   commercial_margin: z.number().positive(),
 });
 
-function verifySignature(header: string, secret: string): boolean {
+function verifyHmac(rawBody: string, header: string, secret: string): boolean {
   try {
+    const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
     const a = Buffer.from(header);
-    const b = Buffer.from(secret);
+    const b = Buffer.from(expected);
     if (a.length !== b.length) return false;
     return timingSafeEqual(a, b);
   } catch {
@@ -29,7 +30,15 @@ function webhookLog(orderId: string, status: "Processed" | "Duplicate" | "Failed
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
-  // ── 1. Signature check ────────────────────────────────────────────────────
+  // ── 1. Read raw body (must happen before signature verification) ──────────
+  let rawBody: string;
+  try {
+    rawBody = await request.text();
+  } catch {
+    return Response.json({ error: "Invalid body" }, { status: 400 });
+  }
+
+  // ── 2. Signature check (HMAC-SHA256 of raw body) ──────────────────────────
   const signature = request.headers.get("x-misan-signature") ?? "";
   const secret = process.env.SERVICES_WEBHOOK_SECRET ?? process.env.MDS_WEBHOOK_SECRET ?? "";
 
@@ -38,15 +47,15 @@ export async function POST(request: NextRequest): Promise<Response> {
     return Response.json({ error: "Server misconfiguration" }, { status: 500 });
   }
 
-  if (!verifySignature(signature, secret)) {
+  if (!verifyHmac(rawBody, signature, secret)) {
     console.warn("[WEBHOOK] Invalid signature — request rejected");
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // ── 2. Parse payload ──────────────────────────────────────────────────────
+  // ── 3. Parse payload ──────────────────────────────────────────────────────
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(rawBody);
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }

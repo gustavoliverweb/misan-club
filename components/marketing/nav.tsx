@@ -4,6 +4,39 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 
+const shopSections = [
+  {
+    label: "Misan Shop",
+    href: "/shop",
+    description: "Todas las categorías",
+    isMain: true,
+  },
+  {
+    label: "Bienestar en Casa",
+    href: "/misanshop/bienestar-en-casa",
+    description: "Agua, bienestar, hogar",
+    isMain: false,
+  },
+  {
+    label: "Complementos Nutricionales",
+    href: "/misanshop/complementos-nutricionales",
+    description: "Suplementos Herbora y PWD Nutrition",
+    isMain: false,
+  },
+  {
+    label: "Tu Biblioteca",
+    href: "/misanshop/tu-biblioteca",
+    description: "Libros y desarrollo personal",
+    isMain: false,
+  },
+  {
+    label: "El Ofertón",
+    href: "/misanshop/el-oferton",
+    description: "Ofertas exclusivas semanales",
+    isMain: false,
+  },
+];
+
 const formacionGroups = [
   {
     label: "Misan Club Academy",
@@ -51,6 +84,7 @@ const formacionGroups = [
 export function MarketingNav() {
   const [scrolled, setScrolled] = useState(false);
   const [formacionOpen, setFormacionOpen] = useState(false);
+  const [shopOpen, setShopOpen] = useState(false);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
@@ -118,6 +152,63 @@ export function MarketingNav() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Shop dropdown */}
+          <div
+            className="relative"
+            onMouseEnter={() => setShopOpen(true)}
+            onMouseLeave={() => setShopOpen(false)}
+          >
+            <Link
+              href="/shop"
+              className="flex items-center gap-1 text-sm text-muted transition-colors hover:text-fg"
+            >
+              Shop
+              <ChevronDown
+                size={12}
+                className={`mt-px transition-transform duration-200 ${
+                  shopOpen ? "-rotate-180" : ""
+                }`}
+              />
+            </Link>
+
+            {shopOpen && (
+              <div className="absolute left-0 top-full z-50 pt-2">
+                <div className="w-64 overflow-hidden rounded-2xl border border-white/8 bg-black/95 backdrop-blur-md">
+                  <div className="p-2">
+                    {shopSections.map((section, i) => (
+                      <div key={section.href}>
+                        {i === 1 && (
+                          <div className="mx-3 my-1 border-t border-white/6" />
+                        )}
+                        <Link
+                          href={section.href}
+                          className={`block rounded-lg px-3 py-2 transition-colors hover:bg-white/4 ${
+                            section.isMain
+                              ? "text-sm font-medium text-fg hover:text-accent"
+                              : "group"
+                          }`}
+                        >
+                          {section.isMain ? (
+                            section.label
+                          ) : (
+                            <>
+                              <p className="text-xs font-medium text-fg group-hover:text-accent">
+                                {section.label}
+                              </p>
+                              <p className="text-[11px] text-muted">
+                                {section.description}
+                              </p>
+                            </>
+                          )}
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

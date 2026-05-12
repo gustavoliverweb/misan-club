@@ -5,6 +5,7 @@ import { db } from "@/infra/db";
 import {
   memberships,
   processedExternalOrders,
+  users,
 } from "@/infra/db/schema";
 import { MembershipRenewalService } from "@/core/services/membership-renewal.service";
 
@@ -52,6 +53,17 @@ export async function POST(req: Request) {
 
   if (existing[0]) {
     return new Response("ok", { status: 200 });
+  }
+
+  // Verify userId from Stripe metadata exists in our DB before writing anything
+  const userRows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!userRows[0]) {
+    return new Response("User not found", { status: 400 });
   }
 
   let newExpiresAt: Date;

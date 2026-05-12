@@ -1,0 +1,221 @@
+import Link from "next/link";
+import { ArrowRight, Droplets, Wind, Bed, Home, UtensilsCrossed, Flame, ShieldCheck, Leaf, TrendingUp } from "lucide-react";
+import { MarketingNav } from "@/components/marketing/nav";
+import { MarketingFooter } from "@/components/marketing/footer";
+
+const subcategories = [
+  {
+    slug: "agua",
+    label: "Agua",
+    count: 7,
+    description: "Sistemas de ósmosis y purificadores de agua.",
+    Icon: Droplets,
+    href: "/categoria-producto/bienestar-en-casa/agua",
+    color: "rgba(0,153,255,0.06)",
+  },
+  {
+    slug: "bienestar",
+    label: "Bienestar",
+    count: 14,
+    description: "Purificadores de aire, aromaterapia y dispositivos de ozono.",
+    Icon: Wind,
+    href: "/categoria-producto/bienestar-en-casa/bienestar",
+    color: "rgba(0,153,255,0.04)",
+  },
+  {
+    slug: "confort",
+    label: "Confort",
+    count: 5,
+    description: "Colchones ergonómicos de última generación y artículos de descanso.",
+    Icon: Bed,
+    href: "/categoria-producto/bienestar-en-casa/confort",
+    color: "rgba(0,153,255,0.06)",
+  },
+  {
+    slug: "hogar",
+    label: "Hogar",
+    count: 4,
+    description: "Aspiradores potentes y silenciosos, artículos de limpieza.",
+    Icon: Home,
+    href: "/categoria-producto/bienestar-en-casa/hogar",
+    color: "rgba(0,153,255,0.04)",
+  },
+  {
+    slug: "menaje-de-hogar",
+    label: "Menaje de Hogar",
+    count: 3,
+    description: "Baterías de cocina y sartenes de alta calidad.",
+    Icon: UtensilsCrossed,
+    href: "/categoria-producto/bienestar-en-casa/menaje-de-hogar",
+    color: "rgba(0,153,255,0.06)",
+  },
+  {
+    slug: "velas-artesanales",
+    label: "Velas Artesanales",
+    count: 2,
+    description: "Complementos aromáticos para el ambiente del hogar.",
+    Icon: Flame,
+    href: "/categoria-producto/bienestar-en-casa/velas-artesanales",
+    color: "rgba(0,153,255,0.04)",
+  },
+];
+
+const valueProps = [
+  {
+    Icon: ShieldCheck,
+    title: "Ahorro",
+    body: "Accede a precios exclusivos para socios, muy por debajo del mercado. Tu membresía se amortiza sola.",
+  },
+  {
+    Icon: Leaf,
+    title: "Salud",
+    body: "Productos seleccionados para regenerar tu entorno físico y emocional. Calidad certificada.",
+  },
+  {
+    Icon: TrendingUp,
+    title: "Oportunidad",
+    body: "Gana dinero recomendando. Comisiones de red activas hasta en 3 niveles por cada venta.",
+  },
+];
+
+export default function BienestarEnCasaPage() {
+  return (
+    <div className="dark min-h-screen bg-black text-fg antialiased">
+      <MarketingNav />
+
+      <div className="pt-14">
+        {/* Breadcrumb */}
+        <div className="mx-auto max-w-5xl px-6 py-5">
+          <nav className="flex items-center gap-2 text-xs text-muted flex-wrap">
+            <Link href="/" className="transition-colors hover:text-fg">Inicio</Link>
+            <span>/</span>
+            <Link href="/shop" className="transition-colors hover:text-fg">Shop</Link>
+            <span>/</span>
+            <span className="text-fg">Bienestar en Casa</span>
+          </nav>
+        </div>
+
+        {/* Hero */}
+        <section className="relative px-6 pb-16 pt-4">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-10"
+            style={{
+              background:
+                "radial-gradient(ellipse 70% 40% at 50% 0%, rgba(0,153,255,0.07) 0%, transparent 70%)",
+            }}
+          />
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5">
+              <Home size={11} className="text-accent" />
+              <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+                Bienestar · MisanShop
+              </span>
+            </div>
+
+            <h1
+              className="max-w-xl font-bold text-fg"
+              style={{
+                fontSize: "clamp(40px, 6vw, 72px)",
+                lineHeight: 0.95,
+                letterSpacing: "-0.03em",
+              }}
+            >
+              Bienestar
+              <br />
+              en Casa
+            </h1>
+
+            <p className="mt-6 max-w-md text-base leading-relaxed text-muted">
+              Convierte tu hogar en un espacio más saludable y ahorra mientras ganas dinero.
+              El bienestar empieza en casa.
+            </p>
+          </div>
+        </section>
+
+        {/* Subcategory grid */}
+        <section className="px-6 pb-24">
+          <div className="mx-auto max-w-5xl">
+            <p className="mb-10 text-xs font-medium uppercase tracking-[0.15em] text-accent">
+              Categorías
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {subcategories.map(({ slug, label, count, description, Icon, href, color }) => (
+                <Link
+                  key={slug}
+                  href={href}
+                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.06] p-6 transition-colors hover:border-white/[0.12]"
+                  style={{
+                    background: `radial-gradient(ellipse 80% 60% at 50% 100%, ${color} 0%, transparent 70%), #090909`,
+                    boxShadow: "rgba(0,0,0,0.35) 0px 16px 40px -8px",
+                  }}
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-black">
+                      <Icon size={15} className="text-accent" />
+                    </div>
+                    <ArrowRight
+                      size={14}
+                      className="text-faint transition-colors group-hover:text-accent"
+                    />
+                  </div>
+
+                  <h2
+                    className="mb-1 text-base font-bold text-fg"
+                    style={{ letterSpacing: "-0.025em" }}
+                  >
+                    {label}
+                  </h2>
+                  <p className="mb-4 text-sm leading-relaxed text-muted">{description}</p>
+
+                  <span className="mt-auto rounded-full border border-white/[0.07] bg-black px-2.5 py-1 text-[10px] font-medium text-muted self-start">
+                    {count} productos
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Value props */}
+        <section className="relative px-6 pb-32">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-10"
+            style={{
+              background:
+                "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0,153,255,0.04) 0%, transparent 70%)",
+            }}
+          />
+          <div className="mx-auto max-w-5xl">
+            <p className="mb-10 text-xs font-medium uppercase tracking-[0.15em] text-accent">
+              Por qué elegir MisanClub
+            </p>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              {valueProps.map(({ Icon, title, body }) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/[0.06] p-6"
+                  style={{ background: "#090909" }}
+                >
+                  <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-black">
+                    <Icon size={15} className="text-accent" />
+                  </div>
+                  <h3
+                    className="mb-2 text-base font-bold text-fg"
+                    style={{ letterSpacing: "-0.02em" }}
+                  >
+                    {title}
+                  </h3>
+                  <p className="text-sm leading-relaxed text-muted">{body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <MarketingFooter />
+    </div>
+  );
+}

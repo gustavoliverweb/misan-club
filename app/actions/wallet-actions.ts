@@ -9,6 +9,22 @@ import { stripe } from "@/infra/stripe";
 
 const walletService = new WalletService();
 
+const withdrawalAttempts = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 5;
+
+function checkWithdrawalRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const existing = withdrawalAttempts.get(userId);
+  if (!existing || now - existing.windowStart > RATE_LIMIT_WINDOW_MS) {
+    withdrawalAttempts.set(userId, { count: 1, windowStart: now });
+    return true;
+  }
+  if (existing.count >= RATE_LIMIT_MAX) return false;
+  existing.count++;
+  return true;
+}
+
 const VALIDATION_MESSAGES: Record<string, string> = {
   KYC_NOT_VERIFIED:
     "Debes verificar tu identidad (KYC) antes de retirar fondos.",
@@ -27,79 +43,91 @@ export async function requestWithdrawalFormAction(
   const session = await auth();
   if (!session?.user?.id) return { error: "No autenticado." };
 
+  const userId = session.user.id;
+
+  if (!checkWithdrawalRateLimit(userId)) {
+    return { error: "Demasiados intentos de retiro. Espera un momento antes de volver a intentarlo." };
+  }
+
   const amount = parseFloat((formData.get("amount") as string) ?? "");
   if (isNaN(amount) || amount < 50) {
     return { error: "El importe mínimo de retiro es 50,00 €." };
   }
-
-  const userId = session.user.id;
-
-  const userRows = await db
-    .select({ kycStatus: users.kycStatus })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  if (!userRows[0]) return { error: "Usuario no encontrado." };
-
-  const txRows = await db
-    .select({
-      id: transactions.id,
-      userId: transactions.userId,
-      amount: transactions.amount,
-      type: transactions.type,
-      description: transactions.description,
-      referenceId: transactions.referenceId,
-      checksum: transactions.checksum,
-      createdAt: transactions.createdAt,
-    })
-    .from(transactions)
-    .where(eq(transactions.userId, userId))
-    .orderBy(desc(transactions.createdAt));
-
-  const domainTxs = txRows.map((row) => ({
-    ...row,
-    amount: parseFloat(row.amount),
-    referenceId: row.referenceId ?? undefined,
-  }));
-
-  const balance = walletService.computeBalance(domainTxs);
-
-  const validation = walletService.validateWithdrawal(
-    { userId, amount, requestedAt: new Date() },
-    userRows[0].kycStatus,
-    balance,
-  );
-
-  if (!validation.ok) {
-    return { error: VALIDATION_MESSAGES[validation.reason] ?? validation.reason };
-  }
-
   const { randomUUID } = await import("crypto");
-  const txId = randomUUID();
-  const previousChecksum = txRows[0]?.checksum ?? null;
-  const checksum = walletService.generateChecksum(
-    {
-      id: txId,
-      userId,
-      amount,
-      type: "debit",
-      description: "Solicitud de retiro",
-      referenceId: undefined,
-    },
-    previousChecksum,
-  );
 
-  await db.insert(transactions).values({
-    id: txId,
-    userId,
-    amount: amount.toString(),
-    type: "debit",
-    description: "Solicitud de retiro",
-    checksum,
-  });
+  try {
+    // CRÍTICO 2 fix: same pattern as requestWithdrawalAction — read→validate→insert
+    // inside a single transaction with FOR UPDATE to prevent double-spend.
+    await db.transaction(async (tx) => {
+      const userRows = await tx
+        .select({ kycStatus: users.kycStatus })
+        .from(users)
+        .where(eq(users.id, userId))
+        .for("update")
+        .limit(1);
 
-  return { success: true };
+      if (!userRows[0]) throw new Error("Usuario no encontrado.");
+
+      const txRows = await tx
+        .select({
+          id: transactions.id,
+          userId: transactions.userId,
+          amount: transactions.amount,
+          type: transactions.type,
+          description: transactions.description,
+          referenceId: transactions.referenceId,
+          checksum: transactions.checksum,
+          createdAt: transactions.createdAt,
+        })
+        .from(transactions)
+        .where(eq(transactions.userId, userId))
+        .orderBy(desc(transactions.createdAt));
+
+      const domainTxs = txRows.map((row) => ({
+        ...row,
+        amount: parseFloat(row.amount),
+        referenceId: row.referenceId ?? undefined,
+      }));
+
+      const balance = walletService.computeBalance(domainTxs);
+
+      const validation = walletService.validateWithdrawal(
+        { userId, amount, requestedAt: new Date() },
+        userRows[0].kycStatus,
+        balance,
+      );
+
+      if (!validation.ok) throw new Error(validation.reason);
+
+      const txId = randomUUID();
+      const previousChecksum = txRows[0]?.checksum ?? null;
+      const checksum = walletService.generateChecksum(
+        {
+          id: txId,
+          userId,
+          amount,
+          type: "debit",
+          description: "Solicitud de retiro",
+          referenceId: undefined,
+        },
+        previousChecksum,
+      );
+
+      await tx.insert(transactions).values({
+        id: txId,
+        userId,
+        amount: amount.toString(),
+        type: "debit",
+        description: "Solicitud de retiro",
+        checksum,
+      });
+    });
+
+    return { success: true };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : "Error processing withdrawal";
+    return { error: VALIDATION_MESSAGES[reason] ?? reason };
+  }
 }
 
 type RenewalState = { error?: string; checkoutUrl?: string } | undefined;

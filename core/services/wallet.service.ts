@@ -14,11 +14,13 @@ const WITHDRAWAL_WINDOW_END = 5;
 export class WalletService {
   // Balance is always computed — never stored.
   // Spec 03: balance = SUM(credits) - SUM(debits)
+  // Accumulate in integer cents to avoid floating-point drift across many transactions.
   computeBalance(transactions: Transaction[]): number {
-    const total = transactions.reduce((acc, tx) => {
-      return tx.type === "credit" ? acc + tx.amount : acc - tx.amount;
+    const totalCents = transactions.reduce((acc, tx) => {
+      const cents = Math.round(tx.amount * 100);
+      return tx.type === "credit" ? acc + cents : acc - cents;
     }, 0);
-    return Math.round(total * 100) / 100;
+    return totalCents / 100;
   }
 
   validateWithdrawal(

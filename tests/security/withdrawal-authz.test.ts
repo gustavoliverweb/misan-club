@@ -11,52 +11,55 @@
  *   1. Peticiones sin sesión son rechazadas antes de tocar la BD.
  *   2. El userId siempre viene de la sesión verificada, nunca del input.
  *   3. Pasar el memberId de otra persona no afecta la billetera de esa persona.
+ *
+ * Nota sobre mocks: la acción usa db.transaction(async (tx) => {...}) internamente.
+ * El mock de mockDb.transaction ejecuta el callback con mockTx, que expone los
+ * mismos métodos encadenados. Las aserciones sobre inserts y selects se hacen
+ * sobre mockTx (no mockDb) porque las queries viven dentro de la transacción.
  */
 
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 
 // ─── Mocks (deben declararse antes del import de la acción) ───────────────────
 
-// vi.hoisted garantiza que estas referencias estén disponibles cuando vi.mock() se ejecuta.
 const mockAuth = vi.hoisted(() => vi.fn());
-
-// Mock del módulo de autenticación.
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 
-// Captura qué datos llegan al INSERT de transactions.
-// Permite verificar que el userId insertado es el de la sesión, no el del input.
+// Captura los datos que llegan al INSERT de transactions dentro de la tx.
 const capturedInserts = vi.hoisted(() => ({ values: [] as Record<string, unknown>[] }));
 
-// Cadena mock para Drizzle ORM.
-// .select().from().where() devuelve un objeto con .limit() y .orderBy()
-// cuyo valor de retorno simula los datos de la BD.
-const mockChain = vi.hoisted(() => ({
+// Cadena mock para Drizzle dentro de la transacción (tx).
+// .select().from().where().for().limit()  → datos KYC
+// .select().from().where().orderBy()      → lista de transacciones para el balance
+const mockTxChain = vi.hoisted(() => ({
   from: vi.fn(),
   where: vi.fn(),
-  // KYC query termina en .limit(1) → usuario verificado
+  for: vi.fn(),
   limit: vi.fn(),
-  // Transactions query termina en .orderBy() → una tx de crédito de 100 €
   orderBy: vi.fn(),
 }));
 
-const mockDb = vi.hoisted(() => ({
+// El objeto tx que el callback de db.transaction recibe.
+const mockTx = vi.hoisted(() => ({
   select: vi.fn(),
   insert: vi.fn(),
+}));
+
+// db solo necesita exponer transaction(); las queries reales van por mockTx.
+const mockDb = vi.hoisted(() => ({
+  transaction: vi.fn(),
 }));
 
 vi.mock("@/infra/db", () => ({ db: mockDb }));
 
 // ─── Import de la acción bajo prueba ─────────────────────────────────────────
-// Importar DESPUÉS de vi.mock() para que los módulos ya estén interceptados.
 import { requestWithdrawalAction } from "@/app/actions/business-actions";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-// UUID v4 válidos (Zod v4 requiere: 3er segmento [1-8]xxx, 4to segmento [89ab]xxx)
 const ATTACKER_SESSION_ID = "00000000-0000-4000-8000-000000000001";
 const VICTIM_USER_ID      = "00000000-0000-4000-8000-000000000002";
 
-// Transacción existente en la BD que da saldo de 100 € al usuario de la sesión.
 const existingTxFixture = {
   id:          "tx-existing-0001",
   userId:      ATTACKER_SESSION_ID,
@@ -74,23 +77,28 @@ beforeEach(() => {
   vi.clearAllMocks();
   capturedInserts.values = [];
 
-  // Configurar la cadena mock para Drizzle:
-  //   select().from().where().limit(1)    → datos KYC del usuario
-  //   select().from().where().orderBy()   → lista de transacciones para el balance
-  mockChain.from.mockReturnValue(mockChain);
-  mockChain.where.mockReturnValue(mockChain);
-  mockChain.limit.mockResolvedValue([{ kycStatus: "verified" }]);
-  mockChain.orderBy.mockResolvedValue([existingTxFixture]);
+  // Cadena encadenada de tx:
+  //   tx.select().from().where().for("update").limit(1) → KYC verified
+  //   tx.select().from().where().orderBy()              → txs para calcular balance
+  mockTxChain.from.mockReturnValue(mockTxChain);
+  mockTxChain.where.mockReturnValue(mockTxChain);
+  mockTxChain.for.mockReturnValue(mockTxChain);
+  mockTxChain.limit.mockResolvedValue([{ kycStatus: "verified" }]);
+  mockTxChain.orderBy.mockResolvedValue([existingTxFixture]);
 
-  mockDb.select.mockReturnValue(mockChain);
-  mockDb.insert.mockReturnValue({
+  mockTx.select.mockReturnValue(mockTxChain);
+  mockTx.insert.mockReturnValue({
     values: vi.fn().mockImplementation((data: Record<string, unknown>) => {
       capturedInserts.values.push(data);
       return Promise.resolve([]);
     }),
   });
 
-  // Fijar la fecha en día 3 del mes (dentro de la ventana de retiros días 1–5).
+  // db.transaction ejecuta el callback pasándole mockTx y devuelve su resultado.
+  mockDb.transaction.mockImplementation(
+    async (callback: (tx: typeof mockTx) => Promise<unknown>) => callback(mockTx),
+  );
+
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-05-03T10:00:00Z"));
 });
@@ -104,8 +112,7 @@ afterEach(() => {
 describe("CRÍTICO 1 — requestWithdrawalAction: Authorization Bypass", () => {
 
   describe("Ataque 1: petición sin sesión autenticada", () => {
-    it("rechaza la petición y no consulta la BD", async () => {
-      // Sin sesión (usuario no logueado o token expirado)
+    it("rechaza la petición y no abre ninguna transacción en la BD", async () => {
       mockAuth.mockResolvedValue(null);
 
       const result = await requestWithdrawalAction({
@@ -113,45 +120,40 @@ describe("CRÍTICO 1 — requestWithdrawalAction: Authorization Bypass", () => {
         amount: 50,
       });
 
-      // El sistema debe rechazar sin exponer información
       expect(result).toEqual({ success: false, error: "No autenticado." });
 
-      // La BD nunca debe consultarse — la función debe retornar antes
-      expect(mockDb.select).not.toHaveBeenCalled();
-      expect(mockDb.insert).not.toHaveBeenCalled();
+      // Sin sesión la función retorna antes de llamar a db.transaction
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+      expect(mockTx.insert).not.toHaveBeenCalled();
     });
 
     it("rechaza aunque el memberId sea válido y exista en el sistema", async () => {
       mockAuth.mockResolvedValue(null);
 
-      // El atacante intenta usar un memberId de un usuario real con saldo
       const result = await requestWithdrawalAction({
         memberId: VICTIM_USER_ID,
         amount: 100,
       });
 
       expect(result.success).toBe(false);
-      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+      expect(mockTx.insert).not.toHaveBeenCalled();
     });
   });
 
   describe("Ataque 2: usuario autenticado pasa el memberId de otra persona", () => {
     beforeEach(() => {
-      // El atacante está logueado con su propia cuenta
       mockAuth.mockResolvedValue({
         user: { id: ATTACKER_SESSION_ID, role: "user" },
       });
     });
 
     it("el débito se aplica al atacante, nunca a la víctima", async () => {
-      // VECTOR DE ATAQUE: pasar el memberId de la víctima en el body
       const result = await requestWithdrawalAction({
         memberId: VICTIM_USER_ID, // ← intento de robo
         amount: 50,
       });
 
-      // Con el fix, la operación usa session.user.id, no el input memberId.
-      // Si el atacante tiene saldo, el retiro procede PERO en su propia cuenta.
       if (result.success) {
         const insertedRecord = capturedInserts.values[0];
         expect(insertedRecord).toBeDefined();
@@ -163,25 +165,22 @@ describe("CRÍTICO 1 — requestWithdrawalAction: Authorization Bypass", () => {
         expect(insertedRecord?.userId).not.toBe(VICTIM_USER_ID);
       }
 
-      // En ningún caso el insert tiene el userId de la víctima
       const victimDebits = capturedInserts.values.filter(
         (r) => r.userId === VICTIM_USER_ID,
       );
       expect(victimDebits).toHaveLength(0);
     });
 
-    it("las consultas a la BD usan el userId de la sesión, no del input", async () => {
+    it("las queries dentro de la tx usan el userId de la sesión, no del input", async () => {
       await requestWithdrawalAction({
         memberId: VICTIM_USER_ID, // ← input malicioso
         amount: 50,
       });
 
-      // La BD fue consultada (select fue llamado)
-      expect(mockDb.select).toHaveBeenCalled();
+      // La transacción fue abierta
+      expect(mockDb.transaction).toHaveBeenCalledOnce();
 
-      // Verificar que el WHERE recibió ATTACKER_SESSION_ID y no VICTIM_USER_ID.
-      // mockChain.where captura el argumento SQL (eq expression object).
-      // Inspeccionamos que el insert final no contiene el userId de la víctima.
+      // El insert final no contiene el userId de la víctima
       const allInsertedUserIds = capturedInserts.values.map((r) => r.userId);
       expect(allInsertedUserIds).not.toContain(VICTIM_USER_ID);
     });
@@ -214,7 +213,7 @@ describe("CRÍTICO 1 — requestWithdrawalAction: Authorization Bypass", () => {
       });
 
       expect(result.success).toBe(false);
-      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(mockTx.insert).not.toHaveBeenCalled();
     });
 
     it("rechaza si el amount es negativo", async () => {
@@ -224,21 +223,17 @@ describe("CRÍTICO 1 — requestWithdrawalAction: Authorization Bypass", () => {
       });
 
       expect(result.success).toBe(false);
-      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(mockTx.insert).not.toHaveBeenCalled();
     });
 
-    it("rechaza si el memberId no es un UUID válido (input completamente inválido)", async () => {
+    it("rechaza si el memberId no es un UUID válido", async () => {
       const result = await requestWithdrawalAction({
         memberId: "'; DROP TABLE transactions; --",
         amount: 50,
       });
 
-      // Con el fix, memberId del input es ignorado, pero el schema sigue validando.
-      // Un memberId inválido falla la validación de Zod (uuid format).
-      // Nota: si la lógica ignora memberId ANTES de parsear, aun así el parse
-      // fallará aquí porque el schema requiere uuid. La BD nunca se toca.
       if (!result.success) {
-        expect(mockDb.insert).not.toHaveBeenCalled();
+        expect(mockTx.insert).not.toHaveBeenCalled();
       }
     });
 
@@ -246,7 +241,7 @@ describe("CRÍTICO 1 — requestWithdrawalAction: Authorization Bypass", () => {
       const result = await requestWithdrawalAction(null);
 
       expect(result.success).toBe(false);
-      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(mockTx.insert).not.toHaveBeenCalled();
     });
   });
 
@@ -257,7 +252,7 @@ describe("CRÍTICO 1 — requestWithdrawalAction: Authorization Bypass", () => {
       });
 
       const result = await requestWithdrawalAction({
-        memberId: ATTACKER_SESSION_ID, // propio ID
+        memberId: ATTACKER_SESSION_ID,
         amount: 50,
       });
 
@@ -266,7 +261,6 @@ describe("CRÍTICO 1 — requestWithdrawalAction: Authorization Bypass", () => {
         expect(result.data.transactionId).toBeDefined();
       }
 
-      // El débito fue creado para el usuario correcto
       const insertedRecord = capturedInserts.values[0];
       expect(insertedRecord?.userId).toBe(ATTACKER_SESSION_ID);
       expect(insertedRecord?.type).toBe("debit");
