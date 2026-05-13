@@ -1,64 +1,56 @@
 import Link from "next/link";
 import { ArrowRight, Droplets, Wind, Bed, Home, UtensilsCrossed, Flame, ShieldCheck, Leaf, TrendingUp } from "lucide-react";
+import type { ElementType } from "react";
 import { MarketingNav } from "@/components/marketing/nav";
 import { MarketingFooter } from "@/components/marketing/footer";
+import { getTopLevelSubcategoriesAction } from "@/app/actions/product-actions";
 
-const subcategories = [
-  {
-    slug: "agua",
+type SubMeta = { label: string; description: string; Icon: ElementType; href: string; color: string };
+
+const SUBCATEGORY_META: Record<string, SubMeta> = {
+  agua: {
     label: "Agua",
-    count: 7,
     description: "Sistemas de ósmosis y purificadores de agua.",
     Icon: Droplets,
     href: "/categoria-producto/bienestar-en-casa/agua",
     color: "rgba(0,153,255,0.06)",
   },
-  {
-    slug: "bienestar",
+  bienestar: {
     label: "Bienestar",
-    count: 14,
     description: "Purificadores de aire, aromaterapia y dispositivos de ozono.",
     Icon: Wind,
     href: "/categoria-producto/bienestar-en-casa/bienestar",
     color: "rgba(0,153,255,0.04)",
   },
-  {
-    slug: "confort",
+  confort: {
     label: "Confort",
-    count: 5,
     description: "Colchones ergonómicos de última generación y artículos de descanso.",
     Icon: Bed,
     href: "/categoria-producto/bienestar-en-casa/confort",
     color: "rgba(0,153,255,0.06)",
   },
-  {
-    slug: "hogar",
+  hogar: {
     label: "Hogar",
-    count: 4,
     description: "Aspiradores potentes y silenciosos, artículos de limpieza.",
     Icon: Home,
     href: "/categoria-producto/bienestar-en-casa/hogar",
     color: "rgba(0,153,255,0.04)",
   },
-  {
-    slug: "menaje-de-hogar",
+  "menaje-de-hogar": {
     label: "Menaje de Hogar",
-    count: 3,
     description: "Baterías de cocina y sartenes de alta calidad.",
     Icon: UtensilsCrossed,
     href: "/categoria-producto/bienestar-en-casa/menaje-de-hogar",
     color: "rgba(0,153,255,0.06)",
   },
-  {
-    slug: "velas-artesanales",
+  "velas-artesanales": {
     label: "Velas Artesanales",
-    count: 2,
     description: "Complementos aromáticos para el ambiente del hogar.",
     Icon: Flame,
     href: "/categoria-producto/bienestar-en-casa/velas-artesanales",
     color: "rgba(0,153,255,0.04)",
   },
-];
+};
 
 const valueProps = [
   {
@@ -78,7 +70,16 @@ const valueProps = [
   },
 ];
 
-export default function BienestarEnCasaPage() {
+export default async function BienestarEnCasaPage() {
+  const dbSubs = await getTopLevelSubcategoriesAction("bienestar-en-casa");
+  const countsMap = Object.fromEntries(dbSubs.map((r) => [r.slug, r.count]));
+
+  const subcategories = Object.entries(SUBCATEGORY_META).map(([slug, meta]) => ({
+    slug,
+    ...meta,
+    count: countsMap[slug] ?? 0,
+  }));
+
   return (
     <div className="dark min-h-screen bg-black text-fg antialiased">
       <MarketingNav />
@@ -168,8 +169,8 @@ export default function BienestarEnCasaPage() {
                   </h2>
                   <p className="mb-4 text-sm leading-relaxed text-muted">{description}</p>
 
-                  <span className="mt-auto rounded-full border border-white/[0.07] bg-black px-2.5 py-1 text-[10px] font-medium text-muted self-start">
-                    {count} productos
+                  <span className="mt-auto self-start rounded-full border border-white/[0.07] bg-black px-2.5 py-1 text-[10px] font-medium text-muted">
+                    {count} producto{count !== 1 ? "s" : ""}
                   </span>
                 </Link>
               ))}

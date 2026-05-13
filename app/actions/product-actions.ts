@@ -69,6 +69,23 @@ export async function getProductsBySlugAction(
     );
 }
 
+export async function getCountsByCategoriesAction(): Promise<
+  { categoria: string; count: number }[]
+> {
+  const rows = await db
+    .select({
+      categoria: products.categoria,
+      total: sql<number>`count(*)`.as("total"),
+    })
+    .from(products)
+    .where(eq(products.active, true))
+    .groupBy(products.categoria);
+
+  return rows
+    .filter((r) => r.categoria !== null)
+    .map((r) => ({ categoria: r.categoria!, count: Number(r.total) }));
+}
+
 export async function getTopLevelSubcategoriesAction(
   categoria: string,
 ): Promise<{ slug: string; count: number }[]> {

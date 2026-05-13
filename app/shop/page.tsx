@@ -2,12 +2,12 @@ import Link from "next/link";
 import { ArrowRight, ShoppingBag } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/nav";
 import { MarketingFooter } from "@/components/marketing/footer";
+import { getCountsByCategoriesAction } from "@/app/actions/product-actions";
 
 const CATEGORIES = [
   {
     slug: "bienestar-en-casa",
     label: "Bienestar en Casa",
-    count: 35,
     description: "Agua, bienestar, confort, hogar y velas artesanales.",
     href: "/misanshop/bienestar-en-casa",
     color: "rgba(0,153,255,0.06)",
@@ -15,7 +15,6 @@ const CATEGORIES = [
   {
     slug: "complementos-nutricionales",
     label: "Complementos Nutricionales",
-    count: 54,
     description: "Suplementos de alta calidad para tu salud diaria.",
     href: "/misanshop/complementos-nutricionales",
     color: "rgba(0,153,255,0.04)",
@@ -23,7 +22,6 @@ const CATEGORIES = [
   {
     slug: "cursos-y-formaciones",
     label: "Cursos y Formaciones",
-    count: 24,
     description: "Academy, seminarios e inteligencia artificial.",
     href: "/formacion",
     color: "rgba(0,153,255,0.06)",
@@ -31,7 +29,6 @@ const CATEGORIES = [
   {
     slug: "elixsia-cosmetics",
     label: "Elixsia Cosmetics",
-    count: 20,
     description: "Cosmética exclusiva de alto rendimiento.",
     href: "/categoria-producto/elixsia-cosmetics",
     color: "rgba(0,153,255,0.04)",
@@ -39,7 +36,6 @@ const CATEGORIES = [
   {
     slug: "membresias",
     label: "Membresías",
-    count: 1,
     description: "Accede a todos los beneficios de MisanClub.",
     href: "/categoria-producto/membresias",
     color: "rgba(0,153,255,0.08)",
@@ -47,7 +43,6 @@ const CATEGORIES = [
   {
     slug: "misan-editorial",
     label: "Misan Editorial",
-    count: 6,
     description: "Libros y publicaciones de desarrollo personal.",
     href: "/categoria-producto/misan-editorial",
     color: "rgba(0,153,255,0.04)",
@@ -55,14 +50,16 @@ const CATEGORIES = [
   {
     slug: "inteligencia-artificial",
     label: "Servicios IA",
-    count: 3,
     description: "Consultoría, automatización y agentes de IA.",
     href: "/categoria-producto/cursos-y-formaciones/inteligencia-artificial",
     color: "rgba(0,153,255,0.06)",
   },
 ];
 
-export default function ShopPage() {
+export default async function ShopPage() {
+  const counts = await getCountsByCategoriesAction();
+  const countsMap = Object.fromEntries(counts.map((r) => [r.categoria, r.count]));
+
   return (
     <div className="dark min-h-screen bg-black text-fg antialiased">
       <MarketingNav />
@@ -134,7 +131,7 @@ export default function ShopPage() {
                 >
                   <div className="mb-4 flex items-center justify-between">
                     <span className="rounded-full border border-white/[0.07] bg-black px-2.5 py-1 text-[10px] font-medium text-muted">
-                      {cat.count} productos
+                      {countsMap[cat.slug] ?? 0} productos
                     </span>
                     <ArrowRight
                       size={14}
