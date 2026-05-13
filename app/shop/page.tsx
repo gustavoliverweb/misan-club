@@ -9,7 +9,7 @@ const CATEGORIES = [
     label: "Bienestar en Casa",
     count: 35,
     description: "Agua, bienestar, confort, hogar y velas artesanales.",
-    href: "/categoria-producto/bienestar-en-casa",
+    href: "/misanshop/bienestar-en-casa",
     color: "rgba(0,153,255,0.06)",
   },
   {
@@ -17,7 +17,7 @@ const CATEGORIES = [
     label: "Complementos Nutricionales",
     count: 54,
     description: "Suplementos de alta calidad para tu salud diaria.",
-    href: "/categoria-producto/complementos-nutricionales",
+    href: "/misanshop/complementos-nutricionales",
     color: "rgba(0,153,255,0.04)",
   },
   {
@@ -41,7 +41,7 @@ const CATEGORIES = [
     label: "Membresías",
     count: 1,
     description: "Accede a todos los beneficios de MisanClub.",
-    href: "/register",
+    href: "/categoria-producto/membresias",
     color: "rgba(0,153,255,0.08)",
   },
   {

@@ -1,26 +1,59 @@
 import Link from "next/link";
-import { Droplets } from "lucide-react";
+import { Package } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/nav";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { ProductCard } from "@/components/shop/product-card";
 import { getProductsBySlugAction } from "@/app/actions/product-actions";
 import { getCurrentUser } from "@/lib/current-user";
 
-const BREADCRUMB = [
-  { label: "Inicio", href: "/" },
-  { label: "Shop", href: "/shop" },
-  { label: "Bienestar en Casa", href: "/categoria-producto/bienestar-en-casa" },
-  { label: "Agua", href: "/categoria-producto/bienestar-en-casa/agua" },
-  { label: "Agua Hidrogenada", href: null },
-];
+const CATEGORY_CONFIG: Record<string, { label: string; parentHref: string }> = {
+  "bienestar-en-casa": {
+    label: "Bienestar en Casa",
+    parentHref: "/misanshop/bienestar-en-casa",
+  },
+  "complementos-nutricionales": {
+    label: "Complementos Nutricionales",
+    parentHref: "/misanshop/complementos-nutricionales",
+  },
+  "elixsia-cosmetics": {
+    label: "Elixsia Cosmetics",
+    parentHref: "/shop",
+  },
+  "misan-editorial": {
+    label: "Misan Editorial",
+    parentHref: "/misanshop/tu-biblioteca",
+  },
+};
 
-export default async function AguaHidrogenadaPage() {
+function slugToLabel(slug: string) {
+  return slug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+type Props = {
+  params: Promise<{
+    categoria: string;
+    subcategoria: string;
+    subsubcategoria: string;
+  }>;
+};
+
+export default async function SubsubcategoriaPage({ params }: Props) {
+  const { categoria, subcategoria, subsubcategoria } = await params;
+
   const [user, productList] = await Promise.all([
     getCurrentUser(),
-    getProductsBySlugAction("bienestar-en-casa", "agua/agua-hidrogenada"),
+    getProductsBySlugAction(categoria, `${subcategoria}/${subsubcategoria}`),
   ]);
 
   const isSocioActivo = user?.membership?.status === "active";
+  const config = CATEGORY_CONFIG[categoria];
+  const categoryLabel = config?.label ?? slugToLabel(categoria);
+  const parentHref = config?.parentHref ?? "/shop";
+  const subcatLabel = slugToLabel(subcategoria);
+  const subsubcatLabel = slugToLabel(subsubcategoria);
 
   return (
     <div className="dark min-h-screen bg-black text-fg antialiased">
@@ -30,18 +63,22 @@ export default async function AguaHidrogenadaPage() {
         {/* Breadcrumb */}
         <div className="mx-auto max-w-5xl px-6 py-5">
           <nav className="flex items-center gap-2 text-xs text-muted flex-wrap">
-            {BREADCRUMB.map((crumb, i) => (
-              <span key={i} className="flex items-center gap-2">
-                {i > 0 && <span>/</span>}
-                {crumb.href ? (
-                  <Link href={crumb.href} className="transition-colors hover:text-fg">
-                    {crumb.label}
-                  </Link>
-                ) : (
-                  <span className="text-fg">{crumb.label}</span>
-                )}
-              </span>
-            ))}
+            <Link href="/" className="transition-colors hover:text-fg">Inicio</Link>
+            <span>/</span>
+            <Link href="/shop" className="transition-colors hover:text-fg">Shop</Link>
+            <span>/</span>
+            <Link href={parentHref} className="transition-colors hover:text-fg">
+              {categoryLabel}
+            </Link>
+            <span>/</span>
+            <Link
+              href={`/categoria-producto/${categoria}/${subcategoria}`}
+              className="transition-colors hover:text-fg"
+            >
+              {subcatLabel}
+            </Link>
+            <span>/</span>
+            <span className="text-fg">{subsubcatLabel}</span>
           </nav>
         </div>
 
@@ -57,9 +94,9 @@ export default async function AguaHidrogenadaPage() {
           />
           <div className="mx-auto max-w-5xl">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5">
-              <Droplets size={11} className="text-accent" />
+              <Package size={11} className="text-accent" />
               <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
-                Bienestar en Casa · Agua
+                {subcatLabel} · {subsubcatLabel}
               </span>
             </div>
 
@@ -71,22 +108,17 @@ export default async function AguaHidrogenadaPage() {
                 letterSpacing: "-0.03em",
               }}
             >
-              Agua
-              <br />
-              Hidrogenada
+              {subsubcatLabel}
             </h1>
 
-            <p className="mt-5 max-w-lg text-base leading-relaxed text-muted">
-              Tecnología de hidrógeno molecular para mejorar tu bienestar diario.
-              Desde botellas portátiles hasta sistemas de ósmosis de alto rendimiento.
-            </p>
-
-            {/* Member callout */}
             {!isSocioActivo && (
               <div className="mt-8 inline-flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-card px-5 py-3.5">
                 <span className="h-2 w-2 rounded-full bg-accent" />
                 <p className="text-sm text-muted">
-                  <Link href="/register" className="font-semibold text-fg hover:text-accent transition-colors">
+                  <Link
+                    href="/register"
+                    className="font-semibold text-fg transition-colors hover:text-accent"
+                  >
                     Hazte socio
                   </Link>{" "}
                   para ver precios exclusivos y generar comisiones en tu red.

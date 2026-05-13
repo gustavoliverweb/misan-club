@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, like, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/infra/db";
 import { products } from "@/infra/db/schema";
@@ -67,6 +67,50 @@ export async function getProductsBySlugAction(
         eq(products.active, true),
       ),
     );
+}
+
+export async function getTopLevelSubcategoriesAction(
+  categoria: string,
+): Promise<{ slug: string; count: number }[]> {
+  const rows = await db
+    .select({
+      topLevel: sql<string>`SPLIT_PART(${products.subcategoria}, '/', 1)`.as("top_level"),
+      total: sql<number>`count(*)`.as("total"),
+    })
+    .from(products)
+    .where(and(eq(products.categoria, categoria), eq(products.active, true)))
+    .groupBy(sql`SPLIT_PART(${products.subcategoria}, '/', 1)`);
+
+  return rows
+    .filter((r) => r.topLevel)
+    .map((r) => ({ slug: r.topLevel, count: Number(r.total) }));
+}
+
+export async function getSubcategoriesAction(
+  categoria: string,
+  prefijo: string,
+): Promise<{ slug: string; count: number }[]> {
+  const rows = await db
+    .select({
+      subcategoria: products.subcategoria,
+      total: sql<number>`count(*)`.as("total"),
+    })
+    .from(products)
+    .where(
+      and(
+        eq(products.categoria, categoria),
+        like(products.subcategoria, `${prefijo}/%`),
+        eq(products.active, true),
+      ),
+    )
+    .groupBy(products.subcategoria);
+
+  return rows
+    .filter((r) => r.subcategoria !== null)
+    .map((r) => ({
+      slug: r.subcategoria!.split("/").at(-1)!,
+      count: Number(r.total),
+    }));
 }
 
 export async function getAllProductsAction(): Promise<ProductRow[]> {
