@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
+import { CartNavCount } from "@/components/shop/cart-nav-count";
 
 const shopSections = [
   {
@@ -235,12 +236,15 @@ export function MarketingNav() {
           ))}
         </nav>
 
-        <Link
-          href="/login"
-          className="inline-flex h-9 items-center justify-center rounded-full bg-white/10 px-5 text-sm font-medium text-fg transition-colors hover:bg-white/15"
-        >
-          Entrar →
-        </Link>
+        <div className="flex items-center gap-2">
+          <CartNavCount />
+          <Link
+            href="/login"
+            className="inline-flex h-9 items-center justify-center rounded-full bg-white/10 px-5 text-sm font-medium text-fg transition-colors hover:bg-white/15"
+          >
+            Entrar →
+          </Link>
+        </div>
       </div>
     </header>
   );

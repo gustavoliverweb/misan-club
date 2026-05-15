@@ -3,11 +3,16 @@ import { eq } from "drizzle-orm";
 import { stripe } from "@/infra/stripe";
 import { db } from "@/infra/db";
 import {
+  carts,
+  cartItems,
   memberships,
+  orderItems,
+  orders,
   processedExternalOrders,
   users,
 } from "@/infra/db/schema";
 import { MembershipRenewalService } from "@/core/services/membership-renewal.service";
+import { processSaleAction } from "@/app/actions/business-actions";
 
 const renewalService = new MembershipRenewalService();
 
@@ -36,13 +41,11 @@ export async function POST(req: Request) {
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
-  const { userId, membershipId } = session.metadata ?? {};
+  const { userId, type } = session.metadata ?? {};
 
   if (!userId) {
     return new Response("Missing metadata", { status: 400 });
   }
-
-  const isFirstActivation = !membershipId;
 
   // Idempotency guard — discard duplicate webhook deliveries
   const existing = await db
@@ -55,7 +58,7 @@ export async function POST(req: Request) {
     return new Response("ok", { status: 200 });
   }
 
-  // Verify userId from Stripe metadata exists in our DB before writing anything
+  // Verify userId exists in our DB
   const userRows = await db
     .select({ id: users.id })
     .from(users)
@@ -65,6 +68,79 @@ export async function POST(req: Request) {
   if (!userRows[0]) {
     return new Response("User not found", { status: 400 });
   }
+
+  // ── Cart order ────────────────────────────────────────────────────────────
+  if (type === "cart_order") {
+    const { orderId, cartId } = session.metadata ?? {};
+
+    if (!orderId) {
+      return new Response("Missing orderId in metadata", { status: 400 });
+    }
+
+    const items = await db
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, orderId));
+
+    // Mark order paid + write idempotency guard atomically
+    await db.transaction(async (tx) => {
+      await tx.insert(processedExternalOrders).values({
+        externalOrderId: session.id,
+        memberId: userId,
+      });
+      await tx
+        .update(orders)
+        .set({ status: "paid" })
+        .where(eq(orders.id, orderId));
+    });
+
+    // Process commissions per item — best effort, failures are logged and don't block the response
+    for (const item of items) {
+      try {
+        const saleAmountNet = parseFloat(item.commissionBase) * item.quantity;
+        await processSaleAction({
+          memberId: userId,
+          productId: item.productId,
+          category: item.commissionCategory,
+          saleAmountNet,
+          isPublicSale: false,
+          customLevelPercentages: [
+            parseFloat(item.porcentajeN1),
+            parseFloat(item.porcentajeN2),
+            parseFloat(item.porcentajeN3),
+            parseFloat(item.porcentajeN4),
+            parseFloat(item.porcentajeN5),
+          ],
+          customPoolRate: parseFloat(item.porcentajePool),
+        });
+      } catch (err) {
+        console.error(
+          `[WEBHOOK] Commission processing failed for orderItem ${item.id}:`,
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+
+    // Clear cart
+    if (cartId) {
+      await db.delete(cartItems).where(eq(cartItems.cartId, cartId));
+    } else {
+      const [cart] = await db
+        .select({ id: carts.id })
+        .from(carts)
+        .where(eq(carts.userId, userId))
+        .limit(1);
+      if (cart) {
+        await db.delete(cartItems).where(eq(cartItems.cartId, cart.id));
+      }
+    }
+
+    return new Response("ok", { status: 200 });
+  }
+
+  // ── Membership renewal / first activation ────────────────────────────────
+  const { membershipId } = session.metadata ?? {};
+  const isFirstActivation = !membershipId;
 
   let newExpiresAt: Date;
 

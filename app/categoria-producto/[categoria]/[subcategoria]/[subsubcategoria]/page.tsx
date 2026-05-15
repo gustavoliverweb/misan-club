@@ -157,6 +157,7 @@ export default async function SubsubcategoriaPage({ params }: Props) {
                     key={product.id}
                     product={product}
                     isSocioActivo={isSocioActivo}
+                    isLoggedIn={!!user}
                   />
                 ))}
               </div>

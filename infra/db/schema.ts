@@ -221,6 +221,51 @@ export const processedExternalOrdersRelations = relations(
   }),
 );
 
+export const orderStatusEnum = pgEnum("order_status", ["pending", "paid", "failed"]);
+
+export const carts = pgTable("carts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const cartItems = pgTable("cart_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  cartId: uuid("cart_id").notNull().references(() => carts.id, { onDelete: "cascade" }),
+  productId: uuid("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  quantity: integer("quantity").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const orders = pgTable("orders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  stripeSessionId: varchar("stripe_session_id", { length: 255 }).unique(),
+  status: orderStatusEnum("status").notNull().default("pending"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Snapshot of product config at purchase time — commission percentages frozen so future edits don't affect past orders.
+export const orderItems = pgTable("order_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  productId: uuid("product_id").notNull().references(() => products.id),
+  quantity: integer("quantity").notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  commissionBase: decimal("commission_base", { precision: 10, scale: 2 }).notNull(),
+  isSocioPrice: boolean("is_socio_price").notNull().default(false),
+  commissionCategory: productCategoryEnum("commission_category").notNull(),
+  porcentajeN1: decimal("porcentaje_n1", { precision: 5, scale: 4 }).notNull(),
+  porcentajeN2: decimal("porcentaje_n2", { precision: 5, scale: 4 }).notNull(),
+  porcentajeN3: decimal("porcentaje_n3", { precision: 5, scale: 4 }).notNull(),
+  porcentajeN4: decimal("porcentaje_n4", { precision: 5, scale: 4 }).notNull(),
+  porcentajeN5: decimal("porcentaje_n5", { precision: 5, scale: 4 }).notNull(),
+  porcentajePool: decimal("porcentaje_pool", { precision: 5, scale: 4 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const products = pgTable("products", {
   id: uuid("id").primaryKey().defaultRandom(),
   nombre: varchar("nombre", { length: 255 }).notNull(),
@@ -243,3 +288,23 @@ export const products = pgTable("products", {
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const cartsRelations = relations(carts, ({ one, many }) => ({
+  user: one(users, { fields: [carts.userId], references: [users.id] }),
+  items: many(cartItems),
+}));
+
+export const cartItemsRelations = relations(cartItems, ({ one }) => ({
+  cart: one(carts, { fields: [cartItems.cartId], references: [carts.id] }),
+  product: one(products, { fields: [cartItems.productId], references: [products.id] }),
+}));
+
+export const ordersRelations = relations(orders, ({ one, many }) => ({
+  user: one(users, { fields: [orders.userId], references: [users.id] }),
+  items: many(orderItems),
+}));
+
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
+  product: one(products, { fields: [orderItems.productId], references: [products.id] }),
+}));

@@ -13,7 +13,7 @@ import { MarketingNav } from "@/components/marketing/nav";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { getProductByIdAction } from "@/app/actions/product-actions";
 import { getCurrentUser } from "@/lib/current-user";
-import { BuyButton } from "@/components/shop/buy-button";
+import { AddToCartButton } from "@/components/shop/add-to-cart-button";
 
 const fmt = new Intl.NumberFormat("es-ES", {
   style: "currency",
@@ -296,15 +296,18 @@ export default async function ProductoDetailPage({ params }: Props) {
 
               {/* Actions */}
               <div className="flex flex-col gap-3">
-                {isSocioActivo ? (
-                  <BuyButton productId={product.id} productName={product.nombre} />
+                {user ? (
+                  <AddToCartButton
+                    productId={product.id}
+                    label={isSocioActivo ? `Agregar al carrito` : `Añadir al carrito (PVP ${fmt.format(pvp)})`}
+                  />
                 ) : (
                   <Link
-                    href="/register"
+                    href="/login"
                     className="flex h-12 items-center justify-center gap-2 rounded-full bg-accent text-sm font-semibold text-black transition-opacity hover:opacity-90"
                   >
                     <Shield size={16} />
-                    Hazte socio para comprar
+                    Inicia sesión para comprar
                   </Link>
                 )}
 

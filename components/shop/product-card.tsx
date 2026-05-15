@@ -3,12 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { MessageCircle, Eye, ShoppingCart, Loader2, CheckCircle, AlertCircle } from "lucide-react";
-import { buyProductAction } from "@/app/actions/product-actions";
+import { addToCartAction } from "@/app/actions/cart-actions";
 import type { ProductRow } from "@/app/actions/product-actions";
 
 type Props = {
   product: ProductRow;
   isSocioActivo: boolean;
+  isLoggedIn: boolean;
 };
 
 const fmt = new Intl.NumberFormat("es-ES", {
@@ -17,8 +18,8 @@ const fmt = new Intl.NumberFormat("es-ES", {
   minimumFractionDigits: 2,
 });
 
-export function ProductCard({ product, isSocioActivo }: Props) {
-  const [buying, setBuying] = useState(false);
+export function ProductCard({ product, isSocioActivo, isLoggedIn }: Props) {
+  const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const pvp = parseFloat(product.precioPublico);
@@ -29,18 +30,19 @@ export function ProductCard({ product, isSocioActivo }: Props) {
   const waText = encodeURIComponent(`Hola, me interesa el producto: ${product.nombre}`);
   const waHref = `https://wa.me/34600000000?text=${waText}`;
 
-  async function handleBuy() {
-    setBuying(true);
+  async function handleAddToCart() {
+    setLoading(true);
     setResult(null);
-    const res = await buyProductAction(product.id);
-    setBuying(false);
+    const res = await addToCartAction(product.id);
+    setLoading(false);
     setResult({
       ok: res.success,
-      msg: res.success
-        ? "¡Compra procesada! Las comisiones se han distribuido en la red."
-        : res.error,
+      msg: res.success ? "Añadido al carrito" : res.error,
     });
-    if (res.success) setTimeout(() => setResult(null), 5000);
+    if (res.success) {
+      window.dispatchEvent(new CustomEvent("cart:updated"));
+      setTimeout(() => setResult(null), 4000);
+    }
   }
 
   return (
@@ -137,19 +139,27 @@ export function ProductCard({ product, isSocioActivo }: Props) {
 
         {/* Actions */}
         <div className="flex flex-col gap-2">
-          {isSocioActivo && (
+          {isLoggedIn ? (
             <button
-              onClick={handleBuy}
-              disabled={buying}
+              onClick={handleAddToCart}
+              disabled={loading}
               className="flex h-10 items-center justify-center gap-2 rounded-full bg-accent text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              {buying ? (
+              {loading ? (
                 <Loader2 size={14} className="animate-spin" />
               ) : (
                 <ShoppingCart size={14} />
               )}
-              {buying ? "Procesando…" : "Comprar"}
+              {loading ? "Añadiendo…" : "Agregar al carrito"}
             </button>
+          ) : (
+            <Link
+              href="/login"
+              className="flex h-10 items-center justify-center gap-2 rounded-full bg-accent text-sm font-semibold text-black transition-opacity hover:opacity-90"
+            >
+              <ShoppingCart size={14} />
+              Agregar al carrito
+            </Link>
           )}
 
           <div className="flex gap-2">
