@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BookOpen, ArrowRight, Lock } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/nav";
 import { MarketingFooter } from "@/components/marketing/footer";
+import { getCurrentUser } from "@/lib/current-user";
 
 const themes = [
   "Desarrollo personal",
@@ -31,7 +32,10 @@ const books = [
   },
 ];
 
-export default function TuBibliotecaPage() {
+export default async function TuBibliotecaPage() {
+  const user = await getCurrentUser();
+  const isSocioActivo = user?.membership?.status === "active";
+
   return (
     <div className="dark min-h-screen bg-black text-fg antialiased">
       <MarketingNav />
@@ -83,6 +87,32 @@ export default function TuBibliotecaPage() {
               El conocimiento también se pone en la cesta.
               No se trata de tener muchos libros, sino los correctos que inspiren y transformen.
             </p>
+
+            {!isSocioActivo && (
+              <div className="mt-8 inline-flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-card px-5 py-3.5">
+                <span className="h-2 w-2 rounded-full bg-accent" />
+                <p className="text-sm text-muted">
+                  <Link
+                    href="/register"
+                    className="font-semibold text-fg transition-colors hover:text-accent"
+                  >
+                    Hazte socio
+                  </Link>{" "}
+                  para ver precios exclusivos y generar comisiones en tu red.
+                </p>
+              </div>
+            )}
+
+            {isSocioActivo && (
+              <div className="mt-8 inline-flex items-center gap-3 rounded-2xl border border-accent/20 bg-accent/[0.06] px-5 py-3.5">
+                <span className="h-2 w-2 rounded-full bg-accent" />
+                <p className="text-sm text-muted">
+                  Estás viendo{" "}
+                  <span className="font-semibold text-accent">precios de socio</span>.
+                  Al comprar, las comisiones se distribuyen en tu red automáticamente.
+                </p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -148,11 +178,18 @@ export default function TuBibliotecaPage() {
                     <p className="mt-2 text-sm leading-relaxed text-muted">{tagline}</p>
                   </div>
                   <div className="flex items-center justify-between border-t border-white/[0.06] px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <Lock size={11} className="text-faint" />
-                      <span className="text-xs text-muted">Precio socio</span>
-                      <span className="text-sm font-semibold text-accent">{memberPrice}</span>
-                    </div>
+                    {isSocioActivo ? (
+                      <div className="flex items-center gap-2">
+                        <Lock size={11} className="text-faint" />
+                        <span className="text-xs text-muted">Precio socio</span>
+                        <span className="text-sm font-semibold text-accent">{memberPrice}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Lock size={11} className="text-faint" />
+                        <span className="text-xs text-muted">Precio exclusivo para socios</span>
+                      </div>
+                    )}
                     <ArrowRight
                       size={14}
                       className="text-faint transition-colors group-hover:text-accent"
@@ -174,21 +211,60 @@ export default function TuBibliotecaPage() {
               <p className="mb-2 text-xs font-medium uppercase tracking-[0.15em] text-accent">
                 Precios exclusivos
               </p>
-              <h2
-                className="mb-4 max-w-sm text-2xl font-bold text-fg"
-                style={{ letterSpacing: "-0.03em" }}
-              >
-                Hazte socio y accede a precios de miembro
-              </h2>
-              <p className="mb-8 max-w-md text-sm leading-relaxed text-muted">
-                Los precios mostrados son exclusivos para socios activos. El envío es directo a tu domicilio.
-              </p>
-              <Link
-                href="/register"
-                className="inline-flex h-10 items-center rounded-full bg-white px-6 text-sm font-semibold text-black transition-opacity hover:opacity-90"
-              >
-                Unirse a MisanClub →
-              </Link>
+              {isSocioActivo ? (
+                <>
+                  <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.06] px-3 py-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                    <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-accent">
+                      Socio activo
+                    </span>
+                  </div>
+                  <h2
+                    className="mb-4 max-w-sm text-2xl font-bold text-fg"
+                    style={{ letterSpacing: "-0.03em" }}
+                  >
+                    Ya tienes acceso a todos los precios
+                  </h2>
+                  <p className="mb-8 max-w-md text-sm leading-relaxed text-muted">
+                    Como socio activo accedes a precios exclusivos en todos los títulos. El envío es directo a tu domicilio.
+                  </p>
+                  <Link
+                    href="/categoria-producto/misan-editorial"
+                    className="inline-flex h-10 items-center rounded-full bg-white px-6 text-sm font-semibold text-black transition-opacity hover:opacity-90"
+                  >
+                    Ver catálogo completo →
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-[0.15em] text-accent">
+                    Precios exclusivos
+                  </p>
+                  <h2
+                    className="mb-4 max-w-sm text-2xl font-bold text-fg"
+                    style={{ letterSpacing: "-0.03em" }}
+                  >
+                    Hazte socio y accede a precios de miembro
+                  </h2>
+                  <p className="mb-8 max-w-md text-sm leading-relaxed text-muted">
+                    Los precios mostrados son exclusivos para socios activos. El envío es directo a tu domicilio.
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-3">
+                    <Link
+                      href="/register"
+                      className="inline-flex h-10 items-center rounded-full bg-white px-6 text-sm font-semibold text-black transition-opacity hover:opacity-90"
+                    >
+                      Unirse a MisanClub →
+                    </Link>
+                    <Link
+                      href="/login"
+                      className="inline-flex h-10 items-center rounded-full border border-white/[0.1] bg-white/[0.04] px-6 text-sm font-medium text-muted transition-colors hover:border-white/[0.18] hover:text-fg"
+                    >
+                      Iniciar sesión
+                    </Link>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </section>

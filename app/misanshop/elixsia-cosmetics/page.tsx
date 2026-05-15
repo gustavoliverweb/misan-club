@@ -1,80 +1,102 @@
 import Link from "next/link";
-import { ArrowRight, Droplets, Wind, Bed, Home, UtensilsCrossed, Flame, ShieldCheck, Leaf, TrendingUp } from "lucide-react";
+import {
+  ArrowRight,
+  Sparkles,
+  Droplets,
+  Sun,
+  Leaf,
+  Star,
+  Wind,
+  ShieldCheck,
+  TrendingUp,
+  Heart,
+} from "lucide-react";
 import type { ElementType } from "react";
 import { MarketingNav } from "@/components/marketing/nav";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { getTopLevelSubcategoriesAction } from "@/app/actions/product-actions";
 import { getCurrentUser } from "@/lib/current-user";
 
-type SubMeta = { label: string; description: string; Icon: ElementType; href: string; color: string };
+type SubMeta = {
+  label: string;
+  description: string;
+  Icon: ElementType;
+  href: string;
+  color: string;
+};
 
 const SUBCATEGORY_META: Record<string, SubMeta> = {
-  agua: {
-    label: "Agua",
-    description: "Sistemas de ósmosis y purificadores de agua.",
+  "cuidado-facial": {
+    label: "Cuidado Facial",
+    description: "Sérum, hidratantes y tratamientos para una piel radiante y uniforme.",
+    Icon: Sparkles,
+    href: "/categoria-producto/elixsia-cosmetics/cuidado-facial",
+    color: "rgba(0,153,255,0.07)",
+  },
+  "cuidado-corporal": {
+    label: "Cuidado Corporal",
+    description: "Cremas nutritivas, aceites y exfoliantes para una piel suave de pies a cabeza.",
     Icon: Droplets,
-    href: "/categoria-producto/bienestar-en-casa/agua",
-    color: "rgba(0,153,255,0.06)",
+    href: "/categoria-producto/elixsia-cosmetics/cuidado-corporal",
+    color: "rgba(0,153,255,0.04)",
   },
-  bienestar: {
-    label: "Bienestar",
-    description: "Purificadores de aire, aromaterapia y dispositivos de ozono.",
+  "cuidado-capilar": {
+    label: "Cuidado Capilar",
+    description: "Champús, mascarillas y tratamientos para un cabello fuerte y luminoso.",
     Icon: Wind,
-    href: "/categoria-producto/bienestar-en-casa/bienestar",
+    href: "/categoria-producto/elixsia-cosmetics/cuidado-capilar",
+    color: "rgba(0,153,255,0.07)",
+  },
+  antiedad: {
+    label: "Antiedad",
+    description: "Fórmulas avanzadas con retinol, ácido hialurónico y péptidos bioactivos.",
+    Icon: Sun,
+    href: "/categoria-producto/elixsia-cosmetics/antiedad",
     color: "rgba(0,153,255,0.04)",
   },
-  confort: {
-    label: "Confort",
-    description: "Colchones ergonómicos de última generación y artículos de descanso.",
-    Icon: Bed,
-    href: "/categoria-producto/bienestar-en-casa/confort",
-    color: "rgba(0,153,255,0.06)",
+  natural: {
+    label: "Línea Natural",
+    description: "Cosmética ecológica certificada con ingredientes 100% de origen vegetal.",
+    Icon: Leaf,
+    href: "/categoria-producto/elixsia-cosmetics/natural",
+    color: "rgba(0,153,255,0.07)",
   },
-  hogar: {
-    label: "Hogar",
-    description: "Aspiradores potentes y silenciosos, artículos de limpieza.",
-    Icon: Home,
-    href: "/categoria-producto/bienestar-en-casa/hogar",
-    color: "rgba(0,153,255,0.04)",
-  },
-  "menaje-de-hogar": {
-    label: "Menaje de Hogar",
-    description: "Baterías de cocina y sartenes de alta calidad.",
-    Icon: UtensilsCrossed,
-    href: "/categoria-producto/bienestar-en-casa/menaje-de-hogar",
-    color: "rgba(0,153,255,0.06)",
-  },
-  "velas-artesanales": {
-    label: "Velas Artesanales",
-    description: "Complementos aromáticos para el ambiente del hogar.",
-    Icon: Flame,
-    href: "/categoria-producto/bienestar-en-casa/velas-artesanales",
+  premium: {
+    label: "Edición Premium",
+    description: "Rituales de lujo con activos exclusivos para resultados visibles desde la primera aplicación.",
+    Icon: Star,
+    href: "/categoria-producto/elixsia-cosmetics/premium",
     color: "rgba(0,153,255,0.04)",
   },
 };
 
-const valueProps = [
-  {
-    Icon: ShieldCheck,
-    title: "Ahorro",
-    body: "Accede a precios exclusivos para socios, muy por debajo del mercado. Tu membresía se amortiza sola.",
-  },
+const pillars = [
   {
     Icon: Leaf,
-    title: "Salud",
-    body: "Productos seleccionados para regenerar tu entorno físico y emocional. Calidad certificada.",
+    title: "Ingredientes naturales",
+    body: "Cada fórmula está elaborada con activos de origen vegetal y biotecnológico, libres de parabenos y sulfatos.",
+  },
+  {
+    Icon: ShieldCheck,
+    title: "Testado dermatológicamente",
+    body: "Todos los productos superan pruebas clínicas de eficacia y tolerancia cutánea antes de llegar a ti.",
+  },
+  {
+    Icon: Heart,
+    title: "Cosmética sostenible",
+    body: "Envases reciclables, formulaciones biodegradables y compromiso con la huella de carbono mínima.",
   },
   {
     Icon: TrendingUp,
-    title: "Oportunidad",
-    body: "Gana dinero recomendando. Comisiones de red activas hasta en 3 niveles por cada venta.",
+    title: "Precio de socio",
+    body: "Como miembro activo de MisanClub accedes a precios exclusivos y generas comisiones en tu red.",
   },
 ];
 
-export default async function BienestarEnCasaPage() {
+export default async function ElixsiaCosmeticsPage() {
   const [user, dbSubs] = await Promise.all([
     getCurrentUser(),
-    getTopLevelSubcategoriesAction("bienestar-en-casa"),
+    getTopLevelSubcategoriesAction("elixsia-cosmetics"),
   ]);
   const isSocioActivo = user?.membership?.status === "active";
   const countsMap = Object.fromEntries(dbSubs.map((r) => [r.slug, r.count]));
@@ -92,12 +114,12 @@ export default async function BienestarEnCasaPage() {
       <div className="pt-14">
         {/* Breadcrumb */}
         <div className="mx-auto max-w-5xl px-6 py-5">
-          <nav className="flex items-center gap-2 text-xs text-muted flex-wrap">
+          <nav className="flex flex-wrap items-center gap-2 text-xs text-muted">
             <Link href="/" className="transition-colors hover:text-fg">Inicio</Link>
             <span>/</span>
             <Link href="/shop" className="transition-colors hover:text-fg">Shop</Link>
             <span>/</span>
-            <span className="text-fg">Bienestar en Casa</span>
+            <span className="text-fg">Elixsia Cosmetics</span>
           </nav>
         </div>
 
@@ -108,14 +130,14 @@ export default async function BienestarEnCasaPage() {
             className="pointer-events-none absolute inset-0 -z-10"
             style={{
               background:
-                "radial-gradient(ellipse 70% 40% at 50% 0%, rgba(0,153,255,0.07) 0%, transparent 70%)",
+                "radial-gradient(ellipse 70% 45% at 50% 0%, rgba(0,153,255,0.08) 0%, transparent 70%)",
             }}
           />
           <div className="mx-auto max-w-5xl">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5">
-              <Home size={11} className="text-accent" />
+              <Sparkles size={11} className="text-accent" />
               <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
-                Bienestar · MisanShop
+                Cosmética · MisanShop
               </span>
             </div>
 
@@ -127,18 +149,35 @@ export default async function BienestarEnCasaPage() {
                 letterSpacing: "-0.03em",
               }}
             >
-              Bienestar
+              Elixsia
               <br />
-              en Casa
+              Cosmetics
             </h1>
 
             <p className="mt-6 max-w-md text-base leading-relaxed text-muted">
-              Convierte tu hogar en un espacio más saludable y ahorra mientras ganas dinero.
-              El bienestar empieza en casa.
+              Cosmética de alta eficacia con ingredientes activos seleccionados.
+              Rituales de belleza que cuidan tu piel desde adentro hacia afuera.
             </p>
 
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href="/categoria-producto/elixsia-cosmetics"
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-black transition-opacity hover:opacity-90"
+              >
+                Ver catálogo <ArrowRight size={13} />
+              </Link>
+              {!isSocioActivo && (
+                <Link
+                  href="/register"
+                  className="inline-flex h-10 items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.04] px-5 text-sm font-medium text-muted transition-colors hover:border-white/[0.18] hover:text-fg"
+                >
+                  Precios de socio
+                </Link>
+              )}
+            </div>
+
             {!isSocioActivo && (
-              <div className="mt-8 inline-flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-card px-5 py-3.5">
+              <div className="mt-6 inline-flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-card px-5 py-3.5">
                 <span className="h-2 w-2 rounded-full bg-accent" />
                 <p className="text-sm text-muted">
                   <Link
@@ -153,7 +192,7 @@ export default async function BienestarEnCasaPage() {
             )}
 
             {isSocioActivo && (
-              <div className="mt-8 inline-flex items-center gap-3 rounded-2xl border border-accent/20 bg-accent/[0.06] px-5 py-3.5">
+              <div className="mt-6 inline-flex items-center gap-3 rounded-2xl border border-accent/20 bg-accent/[0.06] px-5 py-3.5">
                 <span className="h-2 w-2 rounded-full bg-accent" />
                 <p className="text-sm text-muted">
                   Estás viendo{" "}
@@ -169,7 +208,7 @@ export default async function BienestarEnCasaPage() {
         <section className="px-6 pb-24">
           <div className="mx-auto max-w-5xl">
             <p className="mb-10 text-xs font-medium uppercase tracking-[0.15em] text-accent">
-              Categorías
+              Líneas de producto
             </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {subcategories.map(({ slug, label, count, description, Icon, href, color }) => (
@@ -201,7 +240,9 @@ export default async function BienestarEnCasaPage() {
                   <p className="mb-4 text-sm leading-relaxed text-muted">{description}</p>
 
                   <span className="mt-auto self-start rounded-full border border-white/[0.07] bg-black px-2.5 py-1 text-[10px] font-medium text-muted">
-                    {count} producto{count !== 1 ? "s" : ""}
+                    {count > 0
+                      ? `${count} producto${count !== 1 ? "s" : ""}`
+                      : "Próximamente"}
                   </span>
                 </Link>
               ))}
@@ -209,7 +250,31 @@ export default async function BienestarEnCasaPage() {
           </div>
         </section>
 
-        {/* Value props */}
+        {/* Philosophy banner */}
+        <section className="px-6 pb-20">
+          <div className="mx-auto max-w-5xl">
+            <div
+              className="rounded-2xl border border-white/[0.06] p-8 md:p-10"
+              style={{
+                background:
+                  "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,153,255,0.05) 0%, transparent 70%), #090909",
+              }}
+            >
+              <p className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-accent">
+                Filosofía Elixsia
+              </p>
+              <p
+                className="max-w-2xl text-xl font-bold text-fg"
+                style={{ letterSpacing: "-0.025em", lineHeight: 1.3 }}
+              >
+                La verdadera belleza nace del equilibrio entre la naturaleza,
+                la ciencia y el cuidado consciente de uno mismo.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* 4-pillar grid */}
         <section className="relative px-6 pb-20">
           <div
             aria-hidden
@@ -221,30 +286,31 @@ export default async function BienestarEnCasaPage() {
           />
           <div className="mx-auto max-w-5xl">
             <p className="mb-10 text-xs font-medium uppercase tracking-[0.15em] text-accent">
-              Por qué elegir MisanClub
+              Nuestros pilares
             </p>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              {valueProps.map(({ Icon, title, body }) => (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {pillars.map(({ Icon, title, body }) => (
                 <div
                   key={title}
-                  className="rounded-2xl border border-white/[0.06] p-6"
+                  className="rounded-2xl border border-white/[0.06] p-5"
                   style={{ background: "#090909" }}
                 >
                   <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-black">
                     <Icon size={15} className="text-accent" />
                   </div>
                   <h3
-                    className="mb-2 text-base font-bold text-fg"
+                    className="mb-2 text-sm font-bold text-fg"
                     style={{ letterSpacing: "-0.02em" }}
                   >
                     {title}
                   </h3>
-                  <p className="text-sm leading-relaxed text-muted">{body}</p>
+                  <p className="text-xs leading-relaxed text-muted">{body}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
+
         {/* CTA */}
         <section className="px-6 pb-32">
           <div className="mx-auto max-w-5xl">
@@ -264,17 +330,11 @@ export default async function BienestarEnCasaPage() {
                     className="mb-4 max-w-sm text-2xl font-bold text-fg"
                     style={{ letterSpacing: "-0.03em" }}
                   >
-                    Ya disfrutas de precios exclusivos
+                    Ya disfrutas de precios exclusivos Elixsia
                   </h2>
                   <p className="mb-8 max-w-md text-sm leading-relaxed text-muted">
                     Como socio activo accedes a los mejores precios y cada compra genera comisiones en tu red automáticamente.
                   </p>
-                  <Link
-                    href="/categoria-producto/bienestar-en-casa"
-                    className="inline-flex h-10 items-center rounded-full bg-white px-6 text-sm font-semibold text-black transition-opacity hover:opacity-90"
-                  >
-                    Ver todos los productos →
-                  </Link>
                 </>
               ) : (
                 <>
@@ -285,26 +345,44 @@ export default async function BienestarEnCasaPage() {
                     className="mb-4 max-w-sm text-2xl font-bold text-fg"
                     style={{ letterSpacing: "-0.03em" }}
                   >
-                    Accede al precio de socio en todo el catálogo
+                    Accede al precio de socio en toda la línea Elixsia
                   </h2>
                   <p className="mb-8 max-w-md text-sm leading-relaxed text-muted">
-                    Los socios activos de MisanClub acceden a precios exclusivos muy por debajo del mercado y generan comisiones en cada recomendación de su red.
+                    Los socios activos de MisanClub acceden a precios exclusivos muy por debajo del
+                    mercado y generan comisiones en cada recomendación de su red.
                   </p>
-                  <div className="flex flex-wrap justify-center gap-3">
-                    <Link
-                      href="/register"
-                      className="inline-flex h-10 items-center rounded-full bg-white px-6 text-sm font-semibold text-black transition-opacity hover:opacity-90"
-                    >
-                      Unirse a MisanClub →
-                    </Link>
-                    <Link
-                      href="/login"
-                      className="inline-flex h-10 items-center rounded-full border border-white/[0.1] bg-white/[0.04] px-6 text-sm font-medium text-muted transition-colors hover:border-white/[0.18] hover:text-fg"
-                    >
-                      Iniciar sesión
-                    </Link>
-                  </div>
                 </>
+              )}
+              {isSocioActivo ? (
+                <div className="flex flex-wrap justify-center gap-3">
+                  <Link
+                    href="/categoria-producto/elixsia-cosmetics"
+                    className="inline-flex h-10 items-center rounded-full bg-white px-6 text-sm font-semibold text-black transition-opacity hover:opacity-90"
+                  >
+                    Ver todos los productos →
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex h-10 items-center rounded-full border border-white/[0.1] bg-transparent px-6 text-sm font-medium text-muted transition-colors hover:border-white/[0.2] hover:text-fg"
+                  >
+                    Mi cuenta
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex flex-wrap justify-center gap-3">
+                  <Link
+                    href="/register"
+                    className="inline-flex h-10 items-center rounded-full bg-white px-6 text-sm font-semibold text-black transition-opacity hover:opacity-90"
+                  >
+                    Unirse a MisanClub →
+                  </Link>
+                  <Link
+                    href="/categoria-producto/elixsia-cosmetics"
+                    className="inline-flex h-10 items-center rounded-full border border-white/[0.1] bg-transparent px-6 text-sm font-medium text-muted transition-colors hover:border-white/[0.2] hover:text-fg"
+                  >
+                    Ver todos los productos
+                  </Link>
+                </div>
               )}
             </div>
           </div>

@@ -15,7 +15,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; parentHref: string }> = {
   },
   "elixsia-cosmetics": {
     label: "Elixsia Cosmetics",
-    parentHref: "/shop",
+    parentHref: "/misanshop/elixsia-cosmetics",
   },
   "misan-editorial": {
     label: "Misan Editorial",

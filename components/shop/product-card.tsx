@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { MessageCircle, Eye, ShoppingCart, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { buyProductAction } from "@/app/actions/product-actions";
 import type { ProductRow } from "@/app/actions/product-actions";
@@ -152,10 +153,13 @@ export function ProductCard({ product, isSocioActivo }: Props) {
           )}
 
           <div className="flex gap-2">
-            <button className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] text-xs font-medium text-muted transition-colors hover:border-white/[0.14] hover:text-fg">
+            <Link
+              href={`/producto/${product.id}`}
+              className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] text-xs font-medium text-muted transition-colors hover:border-white/[0.14] hover:text-fg"
+            >
               <Eye size={12} />
-              Vista rápida
-            </button>
+              Ver detalle
+            </Link>
             <a
               href={waHref}
               target="_blank"

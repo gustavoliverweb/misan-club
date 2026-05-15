@@ -30,6 +30,12 @@ const shopSections = [
     isMain: false,
   },
   {
+    label: "Elixsia Cosmetics",
+    href: "/misanshop/elixsia-cosmetics",
+    description: "Cosmética natural y antiedad",
+    isMain: false,
+  },
+  {
     label: "El Ofertón",
     href: "/misanshop/el-oferton",
     description: "Ofertas exclusivas semanales",

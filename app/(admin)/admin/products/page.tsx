@@ -1,15 +1,16 @@
 import Link from "next/link";
-import { Package, Plus, CheckCircle, XCircle } from "lucide-react";
+import { Package, Plus, Pencil } from "lucide-react";
 import { getAllProductsAction } from "@/app/actions/product-actions";
+import { ToggleActiveButton } from "@/components/admin/toggle-active-button";
 
 const fmt = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 
 const CATEGORY_LABELS: Record<string, string> = {
-  standard: "Estándar",
+  standard:    "Estándar",
   proprietary: "Propio (2×)",
-  reduced: "Reducido (50%)",
-  membership: "Membresía",
-  service: "Servicio",
+  reduced:     "Reducido (50%)",
+  membership:  "Membresía",
+  service:     "Servicio",
 };
 
 export default async function AdminProductsPage() {
@@ -50,68 +51,71 @@ export default async function AdminProductsPage() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="px-4 py-3 text-left font-semibold text-gray-700">Producto</th>
                 <th className="px-4 py-3 text-left font-semibold text-gray-700">Categoría</th>
                 <th className="px-4 py-3 text-right font-semibold text-gray-700">PVP</th>
                 <th className="px-4 py-3 text-right font-semibold text-gray-700">P. Socio</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Plan comisión</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-700">Pool</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Plan</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">N1·N2·N3·N4·N5</th>
                 <th className="px-4 py-3 text-center font-semibold text-gray-700">Activo</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                  N1 · N2 · N3 · N4 · N5
-                </th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-700">Acc.</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {products.map((p) => (
-                <tr key={p.id} className="transition-colors hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900">{p.nombre}</p>
-                    {p.marca && (
-                      <p className="text-xs text-gray-400">{p.marca}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    <p>{p.categoria}</p>
-                    {p.subcategoria && (
-                      <p className="text-xs text-gray-400">{p.subcategoria}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium text-gray-900">
-                    {fmt.format(parseFloat(p.precioPublico))}
-                  </td>
-                  <td className="px-4 py-3 text-right text-blue-600 font-medium">
-                    {fmt.format(parseFloat(p.precioSocio))}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                      {CATEGORY_LABELS[p.commissionCategory] ?? p.commissionCategory}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {p.participaEnPool ? (
-                      <CheckCircle size={15} className="mx-auto text-green-500" />
-                    ) : (
-                      <XCircle size={15} className="mx-auto text-gray-300" />
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {p.active ? (
-                      <CheckCircle size={15} className="mx-auto text-green-500" />
-                    ) : (
-                      <XCircle size={15} className="mx-auto text-gray-300" />
-                    )}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                    {[p.porcentajeN1, p.porcentajeN2, p.porcentajeN3, p.porcentajeN4, p.porcentajeN5]
-                      .map((v) => `${(parseFloat(v) * 100).toFixed(1)}%`)
-                      .join(" · ")}
-                  </td>
-                </tr>
-              ))}
+              {products.map((p) => {
+                const pvp   = parseFloat(p.precioPublico);
+                const socio = parseFloat(p.precioSocio);
+                const margin = pvp > 0 ? ((pvp - socio) / pvp * 100).toFixed(0) : null;
+
+                return (
+                  <tr key={p.id} className="transition-colors hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-900">{p.nombre}</p>
+                      {p.marca && <p className="text-xs text-gray-400">{p.marca}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      <p>{p.categoria}</p>
+                      {p.subcategoria && (
+                        <p className="text-xs text-gray-400">{p.subcategoria}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-gray-900">
+                      {fmt.format(pvp)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <p className="font-medium text-blue-600">{fmt.format(socio)}</p>
+                      {margin && (
+                        <p className="text-xs text-green-600">−{margin}%</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                        {CATEGORY_LABELS[p.commissionCategory] ?? p.commissionCategory}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">
+                      {[p.porcentajeN1, p.porcentajeN2, p.porcentajeN3, p.porcentajeN4, p.porcentajeN5]
+                        .map((v) => `${(parseFloat(v) * 100).toFixed(1)}%`)
+                        .join("·")}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <ToggleActiveButton productId={p.id} initialActive={p.active ?? false} />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Link
+                        href={`/admin/products/${p.id}/edit`}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-900"
+                      >
+                        <Pencil size={11} />
+                        Editar
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -134,6 +134,83 @@ export async function getAllProductsAction(): Promise<ProductRow[]> {
   return db.select().from(products);
 }
 
+export async function getProductByIdAdminAction(id: string): Promise<ProductRow | null> {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") return null;
+
+  const [row] = await db.select().from(products).where(eq(products.id, id)).limit(1);
+  return row ?? null;
+}
+
+export async function updateProductAction(
+  id: string,
+  input: unknown,
+): Promise<ActionResult<void>> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "No autenticado." };
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") return { success: false, error: "Sin permisos." };
+
+  const parsed = createProductSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
+
+  const d = parsed.data;
+  await db
+    .update(products)
+    .set({
+      nombre: d.nombre,
+      descripcion: d.descripcion,
+      categoria: d.categoria,
+      subcategoria: d.subcategoria,
+      marca: d.marca,
+      imagen: d.imagen,
+      precioPublico: d.precioPublico.toString(),
+      precioSocio: d.precioSocio.toString(),
+      commissionCategory: d.commissionCategory,
+      porcentajeN1: d.porcentajeN1.toString(),
+      porcentajeN2: d.porcentajeN2.toString(),
+      porcentajeN3: d.porcentajeN3.toString(),
+      porcentajeN4: d.porcentajeN4.toString(),
+      porcentajeN5: d.porcentajeN5.toString(),
+      porcentajePool: d.porcentajePool.toString(),
+      participaEnPool: d.participaEnPool,
+      generaAutofactura: d.generaAutofactura,
+    })
+    .where(eq(products.id, id));
+
+  return { success: true, data: undefined };
+}
+
+export async function toggleProductActiveAction(id: string): Promise<ActionResult<void>> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "No autenticado." };
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") return { success: false, error: "Sin permisos." };
+
+  const [product] = await db
+    .select({ active: products.active })
+    .from(products)
+    .where(eq(products.id, id))
+    .limit(1);
+  if (!product) return { success: false, error: "Producto no encontrado." };
+
+  await db.update(products).set({ active: !product.active }).where(eq(products.id, id));
+  return { success: true, data: undefined };
+}
+
+export async function getProductByIdAction(
+  id: string,
+): Promise<ProductRow | null> {
+  const [row] = await db
+    .select()
+    .from(products)
+    .where(and(eq(products.id, id), eq(products.active, true)))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function buyProductAction(
   productId: string,
 ): Promise<ActionResult<{ transactionIds: string[] }>> {
