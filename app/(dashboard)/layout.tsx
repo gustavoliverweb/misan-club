@@ -4,6 +4,7 @@ import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import { MobileBottomNav } from "@/components/dashboard/mobile-bottom-nav";
 import { LogoutButton } from "@/components/dashboard/logout-button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import Link from "next/link";
 
 function Initials({ name }: { name: string }) {
   const parts = name.trim().split(" ");
@@ -32,9 +33,11 @@ export default async function DashboardLayout({
       <aside className="hidden lg:flex w-[var(--sidebar-w)] shrink-0 flex-col border-r border-border bg-card">
         {/* Logo */}
         <div className="flex h-14 shrink-0 items-center border-b border-border px-5">
-          <span className="text-2xl font-bold tracking-tight text-fg">
-            Misan<span className="text-accent">Club</span>
-          </span>
+          <Link href="/">
+            <span className="text-2xl font-bold tracking-tight text-fg">
+              Misan<span className="text-accent">Club</span>
+            </span>
+          </Link>
         </div>
 
         {/* Nav */}
