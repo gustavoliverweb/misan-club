@@ -79,8 +79,20 @@ export default async function SettingsPage() {
             <div className="flex items-center justify-between py-3">
               <dt className="text-sm text-muted">Estado</dt>
               <dd>
-                <Badge variant={user.membership.status === "active" ? "success" : "error"}>
-                  {user.membership.status === "active" ? "Activa" : "Expirada"}
+                <Badge
+                  variant={
+                    user.membership.status === "active"
+                      ? "success"
+                      : user.membership.status === "grace"
+                      ? "warning"
+                      : "error"
+                  }
+                >
+                  {user.membership.status === "active"
+                    ? "Activa"
+                    : user.membership.status === "grace"
+                    ? "Período de gracia"
+                    : "Expirada"}
                 </Badge>
               </dd>
             </div>

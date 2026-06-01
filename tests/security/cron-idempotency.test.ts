@@ -526,9 +526,9 @@ describe("CRÍTICO 3 — Cron Job: lógica de negocio", () => {
     mockDb.update.mockReturnValue(dbUpdateChainExpired);
 
     const res  = await POST(makeRequest());
-    const body = await res.json() as { expired: number };
+    const body = await res.json() as { enteredGrace: number };
 
-    expect(body.expired).toBe(1);
+    expect(body.enteredGrace).toBe(1);
   });
 });
 

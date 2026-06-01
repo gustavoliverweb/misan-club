@@ -48,7 +48,7 @@ export default async function SubsubcategoriaPage({ params }: Props) {
     getProductsBySlugAction(categoria, `${subcategoria}/${subsubcategoria}`),
   ]);
 
-  const isSocioActivo = user?.membership?.status === "active";
+  const isSocioActivo = user?.membership?.status === "active" || user?.membership?.status === "grace";
   const config = CATEGORY_CONFIG[categoria];
   const categoryLabel = config?.label ?? slugToLabel(categoria);
   const parentHref = config?.parentHref ?? "/shop";

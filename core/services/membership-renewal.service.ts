@@ -4,13 +4,27 @@ import type { RenewalCandidate, RenewalDecision, Membership } from "../domain/me
 const EXPIRY_NOTICE_HOURS = 48;
 
 export class MembershipRenewalService {
-  // Returns memberships expiring within the next 48 hours from `now`.
+  // Returns active memberships expiring within the next 48 hours from `now`.
   getExpiringSoon(memberships: Membership[], now: Date): Membership[] {
     const windowMs = EXPIRY_NOTICE_HOURS * 60 * 60 * 1000;
     const cutoff = new Date(now.getTime() + windowMs);
     return memberships.filter(
       (m) => m.status === "active" && m.expiresAt <= cutoff && m.expiresAt > now
     );
+  }
+
+  // Returns memberships currently in their grace period (status=grace, graceEndsAt > now).
+  getInGrace(memberships: Membership[], now: Date): Membership[] {
+    return memberships.filter(
+      (m) => m.status === "grace" && m.graceEndsAt != null && m.graceEndsAt > now
+    );
+  }
+
+  // Calculates graceEndsAt: expiresAt + 10 days.
+  calculateGraceEnd(expiresAt: Date): Date {
+    const end = new Date(expiresAt);
+    end.setUTCDate(end.getUTCDate() + 10);
+    return end;
   }
 
   // Evaluates each expiring membership and returns a decision per member.

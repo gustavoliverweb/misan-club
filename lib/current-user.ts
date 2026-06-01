@@ -12,8 +12,9 @@ export type CurrentUser = {
   kycStatus: "pending" | "verified" | "rejected";
   role: "admin" | "leader" | "member";
   membership: {
-    status: "active" | "expired";
+    status: "active" | "grace" | "expired";
     expiresAt: Date;
+    graceEndsAt: Date | null;
     autoRenew: boolean;
   } | null;
 };
@@ -43,6 +44,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     .select({
       status: memberships.status,
       expiresAt: memberships.expiresAt,
+      graceEndsAt: memberships.graceEndsAt,
       autoRenew: memberships.autoRenew,
     })
     .from(memberships)

@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Package,
   BookOpen,
+  MessageSquare,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/current-user";
 import { LogoutButton } from "@/components/dashboard/logout-button";
@@ -56,6 +57,13 @@ export default async function AdminLayout({
           >
             <BookOpen size={18} strokeWidth={2} />
             Cursos
+          </Link>
+          <Link
+            href="/admin/inquiries"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+          >
+            <MessageSquare size={18} strokeWidth={2} />
+            Solicitudes
           </Link>
         </nav>
 

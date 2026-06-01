@@ -219,7 +219,7 @@ export async function buyProductAction(
 
   const user = await getCurrentUser();
   if (!user) return { success: false, error: "Usuario no encontrado." };
-  if (user.membership?.status !== "active") {
+  if (!user.membership || (user.membership.status !== "active" && user.membership.status !== "grace")) {
     return {
       success: false,
       error: "Necesitas membresía activa para procesar la compra.",

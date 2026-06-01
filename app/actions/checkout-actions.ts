@@ -20,7 +20,7 @@ export async function createCartCheckoutSessionAction(): Promise<
   const user = await getCurrentUser();
   if (!user) return { success: false, error: "Usuario no encontrado." };
 
-  const isSocioActivo = user.membership?.status === "active";
+  const isSocioActivo = user.membership?.status === "active" || user.membership?.status === "grace";
 
   const [cart] = await db
     .select({ id: carts.id })

@@ -27,6 +27,7 @@ export const kycStatusEnum = pgEnum("kyc_status", [
 export const roleEnum = pgEnum("role", ["admin", "leader", "member"]);
 export const membershipStatusEnum = pgEnum("membership_status", [
   "active",
+  "grace",
   "expired",
 ]);
 export const transactionTypeEnum = pgEnum("transaction_type", [
@@ -73,6 +74,7 @@ export const memberships = pgTable("memberships", {
     .references(() => users.id),
   status: membershipStatusEnum("status").notNull().default("active"),
   expiresAt: timestamp("expires_at").notNull(),
+  graceEndsAt: timestamp("grace_ends_at"),
   autoRenew: boolean("auto_renew").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -330,6 +332,16 @@ export const courses = pgTable("courses", {
   contenido: text("contenido"),
   perfilParticipante: text("perfil_participante"),
   active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const contactRequests = pgTable("contact_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id").references(() => products.id, { onDelete: "set null" }),
+  productName: text("product_name").notNull(),
+  nombre: text("nombre").notNull(),
+  email: text("email").notNull(),
+  mensaje: text("mensaje").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -88,12 +88,20 @@ export default async function DashboardPage({
     : 1;
 
   /* ── Derived state ──────────────────────────────── */
-  const membershipActive = user.membership?.status === "active";
+  const membershipStatus = user.membership?.status;
+  const membershipActive = membershipStatus === "active";
+  const membershipInGrace = membershipStatus === "grace";
   const kycVerified = user.kycStatus === "verified";
 
   const expiresAt = user.membership?.expiresAt
     ? new Intl.DateTimeFormat("es-ES", { dateStyle: "medium" }).format(
         new Date(user.membership.expiresAt),
+      )
+    : null;
+
+  const graceEndsAt = user.membership?.graceEndsAt
+    ? new Intl.DateTimeFormat("es-ES", { dateStyle: "medium" }).format(
+        new Date(user.membership.graceEndsAt),
       )
     : null;
 
@@ -125,6 +133,19 @@ export default async function DashboardPage({
           <p className="text-sm text-amber-600 dark:text-amber-400">
             Pago cancelado. Tu membresía no ha sido modificada.
           </p>
+        </div>
+      )}
+      {membershipInGrace && (
+        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+          <AlertCircle size={15} className="mt-0.5 shrink-0 text-amber-500" />
+          <div>
+            <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+              Tu membresía ha expirado — período de gracia activo
+            </p>
+            <p className="mt-0.5 text-xs text-amber-600/80 dark:text-amber-400/80">
+              Tienes acceso completo hasta el {graceEndsAt}. Renueva antes de esa fecha para no perder el acceso y tus comisiones.
+            </p>
+          </div>
         </div>
       )}
 
@@ -205,36 +226,49 @@ export default async function DashboardPage({
               className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
                 membershipActive
                   ? "bg-green-500/10"
+                  : membershipInGrace
+                  ? "bg-amber-500/10"
                   : "bg-red-500/10"
               }`}
             >
               {membershipActive ? (
                 <CheckCircle2 size={20} className="text-green-500" />
+              ) : membershipInGrace ? (
+                <Clock size={20} className="text-amber-500" />
               ) : (
                 <XCircle size={20} className="text-red-500" />
               )}
             </div>
             <div>
-              <Badge variant={membershipActive ? "success" : "error"}>
+              <Badge variant={membershipActive ? "success" : membershipInGrace ? "warning" : "error"}>
                 {membershipActive
                   ? "ACTIVA"
+                  : membershipInGrace
+                  ? "PERÍODO DE GRACIA"
                   : user.membership
                   ? "EXPIRADA"
                   : "SIN MEMBRESÍA"}
               </Badge>
-              {expiresAt && (
+              {membershipInGrace && graceEndsAt ? (
+                <p className="mt-1 flex items-center gap-1 text-[11px] text-amber-500">
+                  <Clock size={10} />
+                  Gracia hasta {graceEndsAt}
+                </p>
+              ) : expiresAt ? (
                 <p className="mt-1 flex items-center gap-1 text-[11px] text-muted">
                   <Clock size={10} />
                   Vence {expiresAt}
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
 
-          {!membershipActive && user.membership && (
+          {(membershipInGrace || (!membershipActive && !membershipInGrace && user.membership)) && (
             <div className="mt-4 space-y-3">
-              <p className="text-xs text-red-400">
-                Renueva para seguir recibiendo comisiones.
+              <p className={`text-xs ${membershipInGrace ? "text-amber-500" : "text-red-400"}`}>
+                {membershipInGrace
+                  ? "Renueva antes de que finalice el período de gracia."
+                  : "Renueva para seguir recibiendo comisiones."}
               </p>
               <RenewMembershipButton />
             </div>

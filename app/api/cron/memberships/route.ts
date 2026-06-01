@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { and, eq, gt, lte } from "drizzle-orm";
+import { and, eq, gt, lte, or } from "drizzle-orm";
 import { db } from "@/infra/db";
 import { memberships, processedExternalOrders, transactions } from "@/infra/db/schema";
 import { MembershipRenewalService } from "@/core/services/membership-renewal.service";
@@ -11,6 +11,7 @@ import type { Transaction } from "@/core/domain/wallet";
 const renewalService = new MembershipRenewalService();
 const walletService = new WalletService();
 const RENEWAL_COST_EUR = 30;
+const GRACE_DAYS = 10;
 
 // "cron-2026-05-12T10-{membershipId}" — unique per (UTC-hour-slot, membership)
 function cronSlot(now: Date, membershipId: string): string {
@@ -19,6 +20,12 @@ function cronSlot(now: Date, membershipId: string): string {
   const dd   = String(now.getUTCDate()).padStart(2, "0");
   const hh   = String(now.getUTCHours()).padStart(2, "0");
   return `cron-${yyyy}-${mm}-${dd}T${hh}-${membershipId}`;
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
 }
 
 export async function POST(req: Request) {
@@ -30,45 +37,61 @@ export async function POST(req: Request) {
   const now = new Date();
   const window48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
 
-  // 1. Expire memberships that passed their expiresAt.
-  //    UPDATE … SET status='expired' WHERE status='active' is idempotent — a second run
-  //    finds nothing matching 'active' that already expired, so it's a no-op.
-  const justExpired = await db
+  // 1. Move expired active memberships into the grace period (10 days).
+  //    Previously this set status='expired' directly — now members get a grace window first.
+  const enteredGrace = await db
     .update(memberships)
-    .set({ status: "expired" })
+    .set({
+      status: "grace",
+      graceEndsAt: addDays(now, GRACE_DAYS),
+    })
     .where(and(eq(memberships.status, "active"), lte(memberships.expiresAt, now)))
     .returning({ id: memberships.id, userId: memberships.userId });
 
-  // 2. Find active memberships expiring in the next 48h.
-  const expiringSoon = await db
+  // 2. Permanently expire grace memberships whose grace window has closed.
+  const finallyExpired = await db
+    .update(memberships)
+    .set({ status: "expired", graceEndsAt: null })
+    .where(and(eq(memberships.status, "grace"), lte(memberships.graceEndsAt, now)))
+    .returning({ id: memberships.id, userId: memberships.userId });
+
+  // 3. Find candidates for auto-renewal:
+  //    a) Active memberships expiring in the next 48h (pre-expiry renewal window).
+  //    b) Grace memberships still within their window (daily retry while balance is insufficient).
+  const renewalCandidates = await db
     .select()
     .from(memberships)
     .where(
-      and(
-        eq(memberships.status, "active"),
-        gt(memberships.expiresAt, now),
-        lte(memberships.expiresAt, window48h),
+      or(
+        // a) Active, expiring soon
+        and(
+          eq(memberships.status, "active"),
+          gt(memberships.expiresAt, now),
+          lte(memberships.expiresAt, window48h),
+        ),
+        // b) In grace period, still open
+        and(
+          eq(memberships.status, "grace"),
+          gt(memberships.graceEndsAt, now),
+        ),
       ),
     );
 
   const renewed: string[] = [];
   const skipped: { id: string; reason: string }[] = [];
 
-  // 3. Process each membership in an isolated transaction.
+  // 4. Process each candidate in an isolated transaction.
   //
   //    Fix A — Race condition: SELECT … FOR UPDATE on the membership row serializes
   //    concurrent cron executions. A second run blocks here until the first commits,
-  //    then re-reads the (now-updated) status and skips if the membership is no longer
-  //    active. Balance is also read inside the lock so it's consistent.
+  //    then re-reads the (now-updated) status and skips if no longer eligible.
   //
   //    Fix B — Idempotency: INSERT … ON CONFLICT DO NOTHING into processedExternalOrders
-  //    with key "cron-{YYYY-MM-DDTHH}-{membershipId}". The UNIQUE constraint on
-  //    externalOrderId means a duplicate run within the same hour-slot returns 0 rows
-  //    and the membership is skipped.
+  //    with key "cron-{YYYY-MM-DDTHH}-{membershipId}". A duplicate run within the same
+  //    hour-slot returns 0 rows and the membership is skipped.
   //
-  //    A per-membership try/catch ensures one failing membership does not abort the
-  //    rest of the batch.
-  for (const m of expiringSoon) {
+  //    A per-membership try/catch ensures one failing membership does not abort the batch.
+  for (const m of renewalCandidates) {
     try {
       const result = await db.transaction(async (tx) => {
         // Lock the membership row — serializes concurrent cron executions.
@@ -78,12 +101,11 @@ export async function POST(req: Request) {
           .where(eq(memberships.id, m.id))
           .for("update");
 
-        if (!locked || locked.status !== "active") {
+        if (!locked || (locked.status !== "active" && locked.status !== "grace")) {
           return { action: "skip" as const, reason: "already_inactive" };
         }
 
         // Idempotency guard: claim the (hour-slot, membership) pair atomically.
-        // ON CONFLICT DO NOTHING returns an empty array if the key already exists.
         const claimed = await tx
           .insert(processedExternalOrders)
           .values({
@@ -122,8 +144,9 @@ export async function POST(req: Request) {
             membership: {
               id: m.id,
               userId: m.userId,
-              status: m.status,
+              status: m.status as "active" | "grace" | "expired",
               expiresAt: m.expiresAt,
+              graceEndsAt: m.graceEndsAt ?? undefined,
               autoRenew: m.autoRenew,
             },
             currentBalance,
@@ -137,7 +160,6 @@ export async function POST(req: Request) {
 
         const newExpiresAt = renewalService.calculateNewExpiry(m.expiresAt);
 
-        // Derive the last checksum from the already-fetched txRows (avoids a second query).
         const lastChecksum =
           [...txRows].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
             ?.checksum ?? null;
@@ -164,9 +186,10 @@ export async function POST(req: Request) {
           checksum,
         });
 
+        // On renewal: always return to active and clear graceEndsAt.
         await tx
           .update(memberships)
-          .set({ status: "active", expiresAt: newExpiresAt })
+          .set({ status: "active", expiresAt: newExpiresAt, graceEndsAt: null })
           .where(eq(memberships.id, m.id));
 
         return { action: "renew" as const };
@@ -178,16 +201,16 @@ export async function POST(req: Request) {
         skipped.push({ id: m.id, reason: result.reason });
       }
     } catch {
-      // A transaction failure for one membership must not abort the entire batch.
       skipped.push({ id: m.id, reason: "transaction_error" });
     }
   }
 
   return Response.json({
     ok: true,
-    expired: justExpired.length,
+    enteredGrace: enteredGrace.length,
+    finallyExpired: finallyExpired.length,
     renewed: renewed.length,
     skipped: skipped.length,
-    details: { justExpired, renewed, skipped },
+    details: { enteredGrace, finallyExpired, renewed, skipped },
   });
 }

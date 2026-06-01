@@ -156,7 +156,7 @@ export async function getCartAction(): Promise<CartData | null> {
   if (!session?.user?.id) return null;
 
   const user = await getCurrentUser();
-  const isSocioActivo = user?.membership?.status === "active";
+  const isSocioActivo = user?.membership?.status === "active" || user?.membership?.status === "grace";
 
   const [cart] = await db
     .select({ id: carts.id })

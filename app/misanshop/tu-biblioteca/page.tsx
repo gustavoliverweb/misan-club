@@ -34,7 +34,7 @@ const books = [
 
 export default async function TuBibliotecaPage() {
   const user = await getCurrentUser();
-  const isSocioActivo = user?.membership?.status === "active";
+  const isSocioActivo = user?.membership?.status === "active" || user?.membership?.status === "grace";
 
   return (
     <div className="dark min-h-screen bg-black text-fg antialiased">

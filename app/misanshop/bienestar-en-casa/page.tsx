@@ -76,7 +76,7 @@ export default async function BienestarEnCasaPage() {
     getCurrentUser(),
     getTopLevelSubcategoriesAction("bienestar-en-casa"),
   ]);
-  const isSocioActivo = user?.membership?.status === "active";
+  const isSocioActivo = user?.membership?.status === "active" || user?.membership?.status === "grace";
   const countsMap = Object.fromEntries(dbSubs.map((r) => [r.slug, r.count]));
 
   const subcategories = Object.entries(SUBCATEGORY_META).map(([slug, meta]) => ({

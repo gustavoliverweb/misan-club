@@ -154,11 +154,11 @@ export function ProductCard({ product, isSocioActivo, isLoggedIn }: Props) {
             </button>
           ) : (
             <Link
-              href="/login"
-              className="flex h-10 items-center justify-center gap-2 rounded-full bg-accent text-sm font-semibold text-black transition-opacity hover:opacity-90"
+              href={`/producto/${product.id}#solicitar`}
+              className="flex h-10 items-center justify-center gap-2 rounded-full border border-accent/40 bg-accent/10 text-sm font-semibold text-accent transition-colors hover:bg-accent/15"
             >
-              <ShoppingCart size={14} />
-              Agregar al carrito
+              <MessageCircle size={14} />
+              Solicitar información
             </Link>
           )}
 

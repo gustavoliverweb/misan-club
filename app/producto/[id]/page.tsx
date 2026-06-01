@@ -14,6 +14,7 @@ import { MarketingFooter } from "@/components/marketing/footer";
 import { getProductByIdAction } from "@/app/actions/product-actions";
 import { getCurrentUser } from "@/lib/current-user";
 import { AddToCartButton } from "@/components/shop/add-to-cart-button";
+import { ProductInquiryForm } from "@/components/shop/product-inquiry-form";
 
 const fmt = new Intl.NumberFormat("es-ES", {
   style: "currency",
@@ -42,7 +43,7 @@ export default async function ProductoDetailPage({ params }: Props) {
 
   if (!product) notFound();
 
-  const isSocioActivo = user?.membership?.status === "active";
+  const isSocioActivo = user?.membership?.status === "active" || user?.membership?.status === "grace";
 
   const pvp = parseFloat(product.precioPublico);
   const socio = parseFloat(product.precioSocio);
@@ -295,31 +296,26 @@ export default async function ProductoDetailPage({ params }: Props) {
               )}
 
               {/* Actions */}
-              <div className="flex flex-col gap-3">
+              <div id="solicitar" className="flex flex-col gap-3">
                 {user ? (
-                  <AddToCartButton
-                    productId={product.id}
-                    label={isSocioActivo ? `Agregar al carrito` : `Añadir al carrito (PVP ${fmt.format(pvp)})`}
-                  />
+                  <>
+                    <AddToCartButton
+                      productId={product.id}
+                      label={isSocioActivo ? `Agregar al carrito` : `Añadir al carrito (PVP ${fmt.format(pvp)})`}
+                    />
+                    <a
+                      href={waHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex h-12 items-center justify-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] text-sm font-medium text-muted transition-colors hover:border-white/[0.14] hover:text-fg"
+                    >
+                      <MessageCircle size={15} />
+                      Consultar por WhatsApp
+                    </a>
+                  </>
                 ) : (
-                  <Link
-                    href="/login"
-                    className="flex h-12 items-center justify-center gap-2 rounded-full bg-accent text-sm font-semibold text-black transition-opacity hover:opacity-90"
-                  >
-                    <Shield size={16} />
-                    Inicia sesión para comprar
-                  </Link>
+                  <ProductInquiryForm productId={product.id} productName={product.nombre} />
                 )}
-
-                <a
-                  href={waHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex h-12 items-center justify-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] text-sm font-medium text-muted transition-colors hover:border-white/[0.14] hover:text-fg"
-                >
-                  <MessageCircle size={15} />
-                  Consultar por WhatsApp
-                </a>
               </div>
 
               {/* Trust badges */}
