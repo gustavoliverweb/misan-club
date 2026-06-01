@@ -44,10 +44,10 @@ export class MembershipRenewalService {
     });
   }
 
-  // Calculates the new expiry date: current expiry + 30 days.
+  // Calculates the new expiry date: current expiry + 1 year.
   calculateNewExpiry(currentExpiry: Date): Date {
     const next = new Date(currentExpiry);
-    next.setUTCDate(next.getUTCDate() + 30);
+    next.setUTCFullYear(next.getUTCFullYear() + 1);
     return next;
   }
 }

@@ -108,10 +108,10 @@ describe("MembershipRenewalService.evaluateRenewals", () => {
 
 // --- calculateNewExpiry ---
 describe("MembershipRenewalService.calculateNewExpiry", () => {
-  it("adds 30 days to the current expiry", () => {
+  it("adds 1 year to the current expiry", () => {
     const current = new Date("2026-04-20T00:00:00Z");
     const next = service.calculateNewExpiry(current);
-    expect(next.toISOString()).toBe("2026-05-20T00:00:00.000Z");
+    expect(next.toISOString()).toBe("2027-04-20T00:00:00.000Z");
   });
 
   it("does not mutate the original date", () => {

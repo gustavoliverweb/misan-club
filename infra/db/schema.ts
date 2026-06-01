@@ -289,6 +289,50 @@ export const products = pgTable("products", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const storeOrders = pgTable("store_orders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sellerId: uuid("seller_id").notNull().references(() => users.id),
+  buyerEmail: varchar("buyer_email", { length: 255 }).notNull().default(""),
+  stripeSessionId: varchar("stripe_session_id", { length: 255 }).unique(),
+  status: orderStatusEnum("status").notNull().default("pending"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const storeOrderItems = pgTable("store_order_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id").notNull().references(() => storeOrders.id, { onDelete: "cascade" }),
+  productId: uuid("product_id").notNull().references(() => products.id),
+  quantity: integer("quantity").notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  commissionBase: decimal("commission_base", { precision: 10, scale: 2 }).notNull(),
+  commissionCategory: productCategoryEnum("commission_category").notNull(),
+  porcentajeN1: decimal("porcentaje_n1", { precision: 5, scale: 4 }).notNull(),
+  porcentajeN2: decimal("porcentaje_n2", { precision: 5, scale: 4 }).notNull(),
+  porcentajeN3: decimal("porcentaje_n3", { precision: 5, scale: 4 }).notNull(),
+  porcentajeN4: decimal("porcentaje_n4", { precision: 5, scale: 4 }).notNull(),
+  porcentajeN5: decimal("porcentaje_n5", { precision: 5, scale: 4 }).notNull(),
+  porcentajePool: decimal("porcentaje_pool", { precision: 5, scale: 4 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const courses = pgTable("courses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  descripcion: text("descripcion"),
+  badge: varchar("badge", { length: 255 }),
+  categoria: varchar("categoria", { length: 100 }).notNull(),
+  modalidad: varchar("modalidad", { length: 255 }),
+  frecuencia: varchar("frecuencia", { length: 255 }),
+  duracion: varchar("duracion", { length: 255 }),
+  acceso: varchar("acceso", { length: 255 }).default("Solo socios activos"),
+  contenido: text("contenido"),
+  perfilParticipante: text("perfil_participante"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const cartsRelations = relations(carts, ({ one, many }) => ({
   user: one(users, { fields: [carts.userId], references: [users.id] }),
   items: many(cartItems),
@@ -307,4 +351,14 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
   product: one(products, { fields: [orderItems.productId], references: [products.id] }),
+}));
+
+export const storeOrdersRelations = relations(storeOrders, ({ one, many }) => ({
+  seller: one(users, { fields: [storeOrders.sellerId], references: [users.id] }),
+  items: many(storeOrderItems),
+}));
+
+export const storeOrderItemsRelations = relations(storeOrderItems, ({ one }) => ({
+  order: one(storeOrders, { fields: [storeOrderItems.orderId], references: [storeOrders.id] }),
+  product: one(products, { fields: [storeOrderItems.productId], references: [products.id] }),
 }));

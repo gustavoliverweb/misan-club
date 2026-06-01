@@ -5,6 +5,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   Package,
+  BookOpen,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/current-user";
 import { LogoutButton } from "@/components/dashboard/logout-button";
@@ -48,6 +49,13 @@ export default async function AdminLayout({
           >
             <Package size={18} strokeWidth={2} />
             Productos
+          </Link>
+          <Link
+            href="/admin/courses"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+          >
+            <BookOpen size={18} strokeWidth={2} />
+            Cursos
           </Link>
         </nav>
 

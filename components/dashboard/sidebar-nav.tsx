@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Share2,
   Check,
+  Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -79,6 +80,18 @@ export function SidebarNav({ role, userId }: Props) {
         )}
         {copied ? "¡Enlace copiado!" : "Compartir mi enlace"}
       </button>
+
+      {userId && (
+        <Link
+          href={`/tienda/${userId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-normal text-muted transition-colors hover:bg-hover hover:text-fg"
+        >
+          <Store size={15} strokeWidth={1.75} />
+          Mi tienda
+        </Link>
+      )}
 
       {role === "admin" && (
         <>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Check, CreditCard, Share2, Wallet } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/nav";
 import { MarketingFooter } from "@/components/marketing/footer";
+import { ContactForm } from "@/components/marketing/contact-form";
 
 const steps = [
   {
@@ -9,7 +10,7 @@ const steps = [
     Icon: CreditCard,
     title: "Activa tu membresía",
     description:
-      "30€ al mes. Pago por Stripe, activación instantánea. Sin compromisos ni períodos mínimos.",
+      "30€ al año. Pago por Stripe, activación instantánea.",
   },
   {
     number: "02",
@@ -619,7 +620,7 @@ export default function LandingPage() {
                     30
                   </span>
                 </div>
-                <p className="mt-2 text-sm text-muted">al mes · 30 días de membresía activa</p>
+                <p className="mt-2 text-sm text-muted">al año · 365 días de membresía activa</p>
               </div>
 
               {/* Checklist */}
@@ -661,6 +662,42 @@ export default function LandingPage() {
             </p>
           </div>
 
+        </div>
+      </section>
+
+      {/* ── CONTACTO ─────────────────────────────────────── */}
+      <section id="contacto" className="px-6 py-32">
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-12 text-center">
+            <p className="mb-4 text-xs font-medium uppercase tracking-[0.15em] text-accent">
+              Contacto
+            </p>
+            <h2
+              className="font-bold text-fg"
+              style={{
+                fontSize: "clamp(32px, 5vw, 56px)",
+                lineHeight: 1.05,
+                letterSpacing: "-0.03em",
+              }}
+            >
+              ¿Tienes dudas?
+              <br />
+              Hablemos.
+            </h2>
+            <p className="mx-auto mt-6 max-w-sm text-sm leading-relaxed text-muted">
+              Cuéntanos qué te interesa y un distribuidor de tu zona se pondrá en contacto contigo.
+            </p>
+          </div>
+
+          <div
+            className="overflow-hidden rounded-2xl bg-card p-8"
+            style={{
+              boxShadow:
+                "rgba(0,153,255,0.12) 0px 0px 0px 1px, rgba(0,0,0,0.4) 0px 24px 48px -8px",
+            }}
+          >
+            <ContactForm />
+          </div>
         </div>
       </section>
 

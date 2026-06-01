@@ -9,6 +9,8 @@ import {
   orderItems,
   orders,
   processedExternalOrders,
+  storeOrderItems,
+  storeOrders,
   users,
 } from "@/infra/db/schema";
 import { MembershipRenewalService } from "@/core/services/membership-renewal.service";
@@ -41,7 +43,83 @@ export async function POST(req: Request) {
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
-  const { userId, type } = session.metadata ?? {};
+  const { userId, type, sellerId, storeOrderId } = session.metadata ?? {};
+
+  // ── Store sale (guest buyer, no userId) ───────────────────────────────────
+  if (type === "store_sale") {
+    if (!sellerId || !storeOrderId) {
+      return new Response("Missing store metadata", { status: 400 });
+    }
+
+    const existingStore = await db
+      .select({ id: processedExternalOrders.id })
+      .from(processedExternalOrders)
+      .where(eq(processedExternalOrders.externalOrderId, session.id))
+      .limit(1);
+
+    if (existingStore[0]) {
+      return new Response("ok", { status: 200 });
+    }
+
+    const sellerRows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, sellerId))
+      .limit(1);
+
+    if (!sellerRows[0]) {
+      return new Response("Seller not found", { status: 400 });
+    }
+
+    const storeItems = await db
+      .select()
+      .from(storeOrderItems)
+      .where(eq(storeOrderItems.orderId, storeOrderId));
+
+    const buyerEmail = session.customer_details?.email ?? "";
+
+    await db.transaction(async (tx) => {
+      await tx.insert(processedExternalOrders).values({
+        externalOrderId: session.id,
+        memberId: sellerId,
+      });
+      await tx
+        .update(storeOrders)
+        .set({ status: "paid", buyerEmail })
+        .where(eq(storeOrders.id, storeOrderId));
+    });
+
+    for (const item of storeItems) {
+      try {
+        const saleAmountNet = parseFloat(item.commissionBase) * item.quantity;
+        const marginPerUnit = parseFloat(item.unitPrice) - parseFloat(item.commissionBase);
+        const directMarginAmount = marginPerUnit * item.quantity;
+        await processSaleAction({
+          memberId: sellerId,
+          productId: item.productId,
+          category: item.commissionCategory,
+          saleAmountNet,
+          isPublicSale: directMarginAmount > 0,
+          directMarginAmount: directMarginAmount > 0 ? directMarginAmount : undefined,
+          customLevelPercentages: [
+            parseFloat(item.porcentajeN1),
+            parseFloat(item.porcentajeN2),
+            parseFloat(item.porcentajeN3),
+            parseFloat(item.porcentajeN4),
+            parseFloat(item.porcentajeN5),
+          ],
+          customPoolRate: parseFloat(item.porcentajePool),
+        });
+      } catch (err) {
+        console.error(
+          `[WEBHOOK] Commission processing failed for storeOrderItem ${item.id}:`,
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+
+    return new Response("ok", { status: 200 });
+  }
 
   if (!userId) {
     return new Response("Missing metadata", { status: 400 });
@@ -146,7 +224,7 @@ export async function POST(req: Request) {
 
   if (isFirstActivation) {
     newExpiresAt = new Date();
-    newExpiresAt.setUTCDate(newExpiresAt.getUTCDate() + 30);
+    newExpiresAt.setUTCFullYear(newExpiresAt.getUTCFullYear() + 1);
   } else {
     const membershipRows = await db
       .select({ expiresAt: memberships.expiresAt })

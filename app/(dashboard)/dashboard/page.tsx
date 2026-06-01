@@ -16,6 +16,7 @@ import {
   PartyPopper,
   ChevronRight,
   Users,
+  Store,
 } from "lucide-react";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/current-user";
@@ -26,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { KycUploadDialog } from "@/components/kyc/kyc-upload-dialog";
 import { BentoCard, BentoCardLink } from "@/components/ui/bento-card";
 import { RenewMembershipButton } from "@/components/dashboard/renew-membership-button";
+import { CopyStoreLinkButton } from "@/components/dashboard/copy-store-link-button";
 
 const walletService = new WalletService();
 
@@ -350,7 +352,26 @@ export default async function DashboardPage({
           )}
         </BentoCard>
 
-        {/* 5. Configuración */}
+        {/* 5. Mi Tienda */}
+        <BentoCard>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted">
+            Mi Tienda
+          </p>
+
+          <div className="mt-4 flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/10">
+              <Store size={18} className="text-accent" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-fg">Tu tienda personal</p>
+              <p className="text-[11px] text-muted">Comparte y vende sin intermediarios</p>
+            </div>
+          </div>
+
+          <CopyStoreLinkButton userId={user.id} />
+        </BentoCard>
+
+        {/* 6. Configuración */}
         <BentoCardLink href="/settings">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted">
             Configuración
