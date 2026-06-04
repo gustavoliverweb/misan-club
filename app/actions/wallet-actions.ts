@@ -156,12 +156,12 @@ export async function renewMembershipAction(
       {
         price_data: {
           currency: "eur",
-          unit_amount: 3000,
+          unit_amount: 9900,
           product_data: {
             name: isFirstActivation
               ? "Activación de Membresía MisanClub"
               : "Renovación de Membresía MisanClub",
-            description: "+30 días de membresía activa",
+            description: "+365 días de membresía activa",
           },
         },
         quantity: 1,

@@ -276,7 +276,7 @@ export default async function DashboardPage({
 
           {!user.membership && (
             <div className="mt-4">
-              <RenewMembershipButton label="Activar membresía — 30 €" />
+              <RenewMembershipButton label="Activar membresía — 99 €" />
             </div>
           )}
 

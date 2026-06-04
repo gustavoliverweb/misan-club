@@ -10,7 +10,7 @@ import type { Transaction } from "@/core/domain/wallet";
 
 const renewalService = new MembershipRenewalService();
 const walletService = new WalletService();
-const RENEWAL_COST_EUR = 30;
+const RENEWAL_COST_EUR = 99;
 const GRACE_DAYS = 10;
 
 // "cron-2026-05-12T10-{membershipId}" — unique per (UTC-hour-slot, membership)

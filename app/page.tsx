@@ -10,7 +10,7 @@ const steps = [
     Icon: CreditCard,
     title: "Activa tu membresía",
     description:
-      "30€ al año. Pago por Stripe, activación instantánea.",
+      "99€ al año (IVA incl.). Pago por Stripe, activación instantánea.",
   },
   {
     number: "02",
@@ -617,10 +617,10 @@ export default function LandingPage() {
                       letterSpacing: "-0.04em",
                     }}
                   >
-                    30
+                    99
                   </span>
                 </div>
-                <p className="mt-2 text-sm text-muted">al año · 365 días de membresía activa</p>
+                <p className="mt-2 text-sm text-muted">al año · IVA incl. · 365 días de membresía activa</p>
               </div>
 
               {/* Checklist */}
