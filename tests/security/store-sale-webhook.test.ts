@@ -244,7 +244,7 @@ describe("Stripe webhook — store_sale flow", () => {
     expect(saleCall.directMarginAmount).toBeUndefined();
   });
 
-  it("does not interfere with membership renewal flow (no type in metadata)", async () => {
+  it("membership flow calls processSaleAction with category membership (no type in metadata)", async () => {
     mockConstructEvent.mockReturnValue({
       type: "checkout.session.completed",
       data: {
@@ -268,9 +268,17 @@ describe("Stripe webhook — store_sale flow", () => {
       await cb(tx);
     });
 
+    mockProcessSale.mockResolvedValue({ success: true, data: { transactionIds: ["tx-m1"] } });
+
     const res = await POST(makeRequest());
 
     expect(res.status).toBe(200);
-    expect(mockProcessSale).not.toHaveBeenCalled();
+    expect(mockProcessSale).toHaveBeenCalledOnce();
+    const call = mockProcessSale.mock.calls[0][0];
+    expect(call.memberId).toBe(USER_ID);
+    expect(call.category).toBe("membership");
+    expect(call.saleAmountNet).toBe(99);
+    expect(call.isPublicSale).toBe(false);
+    expect(call.eventLabel).toBe("activación de membresía");
   });
 });

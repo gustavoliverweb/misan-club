@@ -18,6 +18,10 @@ import { processSaleAction } from "@/app/actions/business-actions";
 
 const renewalService = new MembershipRenewalService();
 
+// Virtual product ID used as referenceId for all membership commission transactions
+const MEMBERSHIP_PRODUCT_ID = "00000000-0000-4000-8000-000000000099";
+const MEMBERSHIP_AMOUNT_EUR = 99;
+
 export async function POST(req: Request) {
   const body = await req.text();
   const sig = req.headers.get("stripe-signature");
@@ -258,6 +262,24 @@ export async function POST(req: Request) {
         .where(eq(memberships.id, membershipId));
     }
   });
+
+  // Distribute membership commissions to the 5-level upline — best effort,
+  // failures are logged and don't block the response
+  try {
+    await processSaleAction({
+      memberId: userId,
+      productId: MEMBERSHIP_PRODUCT_ID,
+      category: "membership",
+      saleAmountNet: MEMBERSHIP_AMOUNT_EUR,
+      isPublicSale: false,
+      eventLabel: isFirstActivation ? "activación de membresía" : "renovación de membresía",
+    });
+  } catch (err) {
+    console.error(
+      `[WEBHOOK] Membership commission failed for user ${userId}:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   return new Response("ok", { status: 200 });
 }

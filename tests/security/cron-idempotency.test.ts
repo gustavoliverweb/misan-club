@@ -59,11 +59,11 @@ const membershipFixture = {
   createdAt: new Date("2026-04-12T10:00:00Z"),
 };
 
-// 50 € credit → balance sufficient for the 30 € renewal
+// 150 € credit → balance sufficient for the 99 € renewal
 const creditTxFixture = {
   id:             "tx-credit-001",
   userId:         USER_ID,
-  amount:         "50",
+  amount:         "150",
   type:           "credit" as const,
   description:    "Comisión nivel 1",
   referenceId:    null,
@@ -442,7 +442,7 @@ describe("CRÍTICO 3 — Cron Job: race condition", () => {
 });
 
 describe("CRÍTICO 3 — Cron Job: lógica de negocio", () => {
-  it("renueva la membresía cuando autoRenew=true y balance >= 30€", async () => {
+  it("renueva la membresía cuando autoRenew=true y balance >= 99€", async () => {
     const res  = await POST(makeRequest());
     const body = await res.json() as { renewed: number; skipped: number };
 
@@ -450,11 +450,11 @@ describe("CRÍTICO 3 — Cron Job: lógica de negocio", () => {
     expect(body.skipped).toBe(0);
   });
 
-  it("inserta un débito de 30.00€ al renovar", async () => {
+  it("inserta un débito de 99.00€ al renovar", async () => {
     await POST(makeRequest());
 
     expect(capturedDebits).toHaveLength(1);
-    expect(capturedDebits[0]?.amount).toBe("30.00");
+    expect(capturedDebits[0]?.amount).toBe("99.00");
     expect(capturedDebits[0]?.type).toBe("debit");
     expect(capturedDebits[0]?.userId).toBe(USER_ID);
   });
@@ -493,9 +493,9 @@ describe("CRÍTICO 3 — Cron Job: lógica de negocio", () => {
     expect(capturedDebits).toHaveLength(0);
   });
 
-  it("salta con 'insufficient_balance' cuando el balance es menor a 30€", async () => {
+  it("salta con 'insufficient_balance' cuando el balance es menor a 99€", async () => {
     ctx = makeTxContext({
-      txRows:        [{ ...creditTxFixture, amount: "10" }], // 10€ < 30€
+      txRows:        [{ ...creditTxFixture, amount: "50" }], // 50€ < 99€
       onDebit:       (d) => capturedDebits.push(d),
       onIdempInsert: (d) => capturedIdempInserts.push(d),
     });

@@ -14,8 +14,8 @@ describe("CATEGORY_CONFIG level percentages", () => {
     expect(CATEGORY_CONFIG.reduced.levelPercentages).toEqual([0.025, 0.015, 0.01, 0.005, 0.005]);
   });
 
-  it("membership: same rates as standard", () => {
-    expect(CATEGORY_CONFIG.membership.levelPercentages).toEqual([0.05, 0.03, 0.02, 0.01, 0.01]);
+  it("membership: [3%, 3%, 3%, 4%, 5%]", () => {
+    expect(CATEGORY_CONFIG.membership.levelPercentages).toEqual([0.03, 0.03, 0.03, 0.04, 0.05]);
   });
 
   it("service: standard rates (applied to 30% of commercial margin)", () => {

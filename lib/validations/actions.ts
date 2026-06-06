@@ -25,6 +25,8 @@ export const purchaseSchema = z
       .tuple([z.number(), z.number(), z.number(), z.number(), z.number()])
       .optional(),
     customPoolRate: z.number().min(0).max(1).optional(),
+    // Human-readable label shown in wallet descriptions instead of the raw productId
+    eventLabel: z.string().max(100).optional(),
   })
   .refine(
     (d) => d.category !== "service" || d.commercialMargin !== undefined,

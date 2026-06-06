@@ -24,7 +24,7 @@ export const CATEGORY_CONFIG: Record<ProductCategory, CategoryConfig> = {
     poolRate: 0.025,
   },
   membership: {
-    levelPercentages: [0.05, 0.03, 0.02, 0.01, 0.01],
+    levelPercentages: [0.03, 0.03, 0.03, 0.04, 0.05],
     poolRate: 0.05,
   },
   // Service/Travel: rates apply to 30% of commercial margin (base = margin * 0.30)

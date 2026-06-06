@@ -91,6 +91,7 @@ export async function processSaleAction(
     commercialMargin,
     isPublicSale,
     directMarginAmount,
+    eventLabel,
   } = parsed.data;
 
   const config = CATEGORY_CONFIG[category];
@@ -171,7 +172,7 @@ export async function processSaleAction(
 
           const txId = randomUUID();
           const previousChecksum = latestChecksums.get(recipient.memberId) ?? null;
-          const description = `Comisión nivel ${commission.level} — venta ${productId}`;
+          const description = `Comisión nivel ${commission.level} — ${eventLabel ?? `venta ${productId}`}`;
           const checksum = walletService.generateChecksum(
             {
               id: txId,
