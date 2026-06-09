@@ -2,26 +2,10 @@ import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
 import { getCurrentUser } from "@/lib/current-user";
 import { db } from "@/infra/db";
-import { getDownline } from "@/infra/db/queries/downline";
+import { getDownline, getFullDownline } from "@/infra/db/queries/downline";
 import { BentoCard } from "@/components/ui/bento-card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-
-const fmtDate = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium" });
-
-const LEVEL_LABELS: Record<number, string> = {
-  1: "Nivel 1",
-  2: "Nivel 2",
-  3: "Nivel 3",
-  4: "Nivel 4",
-  5: "Nivel 5",
-};
+import { NetworkTree } from "@/components/network/network-tree";
+import { buildTree } from "@/lib/network-tree";
 
 const LEVEL_PCTS: Record<number, string> = {
   1: "10%",
@@ -51,14 +35,18 @@ export default async function MyNetworkPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const downline = await getDownline(db, user.id);
+  const [downline, fullDownline] = await Promise.all([
+    getDownline(db, user.id),
+    getFullDownline(db, user.id),
+  ]);
 
   const byLevel = downline.reduce<Record<number, number>>((acc, m) => {
     acc[m.level] = (acc[m.level] ?? 0) + 1;
     return acc;
   }, {});
 
-  const totalNetwork = downline.length;
+  const totalNetwork = fullDownline.length;
+  const treeNodes = buildTree(fullDownline, user.id);
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
@@ -69,7 +57,7 @@ export default async function MyNetworkPage() {
         <p className="mt-1 text-sm text-muted">
           {totalNetwork === 0
             ? "Aún no tienes socios en tu red"
-            : `${totalNetwork} ${totalNetwork === 1 ? "socio" : "socios"} en tu estructura descendente — máx. 5 niveles`}
+            : `${totalNetwork} ${totalNetwork === 1 ? "socio" : "socios"} en tu estructura descendente`}
         </p>
       </div>
 
@@ -103,7 +91,7 @@ export default async function MyNetworkPage() {
         })}
       </div>
 
-      {/* Network table */}
+      {/* Network tree */}
       <BentoCard className="overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted">
@@ -112,7 +100,7 @@ export default async function MyNetworkPage() {
           <span className="tabular-nums text-sm text-faint">{totalNetwork}</span>
         </div>
 
-        {downline.length === 0 ? (
+        {fullDownline.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <Users size={36} className="text-faint" />
             <div>
@@ -125,35 +113,22 @@ export default async function MyNetworkPage() {
             </div>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Nivel</TableHead>
-                <TableHead className="hidden sm:table-cell">Fecha de ingreso</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {downline.map((member) => (
-                <TableRow key={member.memberId}>
-                  <TableCell className="font-medium text-fg">
-                    {member.fullName}
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${LEVEL_BADGE[member.level]}`}
-                    >
-                      <span className={`h-1 w-1 rounded-full ${LEVEL_DOT[member.level]}`} />
-                      {LEVEL_LABELS[member.level]}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden text-sm text-muted sm:table-cell">
-                    {fmtDate.format(new Date(member.joinDate))}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <>
+            {/* Column headers */}
+            <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
+              <div className="w-5 shrink-0" />
+              <span className="flex-1 text-xs font-semibold uppercase tracking-widest text-faint">
+                Nombre
+              </span>
+              <span className="w-16 shrink-0 text-right text-xs font-semibold uppercase tracking-widest text-faint">
+                Nivel
+              </span>
+              <span className="hidden w-28 shrink-0 text-right text-xs font-semibold uppercase tracking-widest text-faint sm:block">
+                Ingreso
+              </span>
+            </div>
+            <NetworkTree nodes={treeNodes} />
+          </>
         )}
       </BentoCard>
     </div>
