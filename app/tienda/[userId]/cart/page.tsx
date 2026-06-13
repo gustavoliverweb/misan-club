@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ShoppingCart, Loader2, AlertCircle, Trash2, Plus, Minus } from "lucide-react";
 import {
+  checkIsSocioAction,
   getStoreCartAction,
   removeFromStoreCartAction,
   updateStoreCartQtyAction,
@@ -28,15 +29,21 @@ export default function StoreCartPage({ params, searchParams }: Props) {
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [canceled, setCanceled] = useState(false);
   const [items, setItems] = useState<StoreCartItem[]>([]);
+  const [isSocio, setIsSocio] = useState(false);
   const [loading, setLoading] = useState(true);
   const [checkoutPending, startCheckout] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
-      const [p, sp] = await Promise.all([params, searchParams]);
+      const [p, sp, socio] = await Promise.all([
+        params,
+        searchParams,
+        checkIsSocioAction(),
+      ]);
       setSellerId(p.userId);
       setCanceled(!!sp.canceled);
+      setIsSocio(socio);
 
       const cart = await getStoreCartAction(p.userId);
       setItems(cart?.items ?? []);
@@ -45,10 +52,13 @@ export default function StoreCartPage({ params, searchParams }: Props) {
     init();
   }, [params, searchParams]);
 
-  const total = items.reduce(
-    (sum, item) => sum + parseFloat(item.precioPublico) * item.qty,
-    0,
-  );
+  const total = items.reduce((sum, item) => {
+    const price =
+      isSocio && parseFloat(item.precioSocio) < parseFloat(item.precioPublico)
+        ? parseFloat(item.precioSocio)
+        : parseFloat(item.precioPublico);
+    return sum + price * item.qty;
+  }, 0);
 
   async function handleRemove(productId: string) {
     await removeFromStoreCartAction(productId);
@@ -143,6 +153,9 @@ export default function StoreCartPage({ params, searchParams }: Props) {
             <div className="space-y-3">
               {items.map((item) => {
                 const pvp = parseFloat(item.precioPublico);
+                const pvs = parseFloat(item.precioSocio);
+                const hasDiscount = isSocio && pvs < pvp;
+                const linePrice = hasDiscount ? pvs : pvp;
                 return (
                   <div
                     key={item.productId}
@@ -167,10 +180,18 @@ export default function StoreCartPage({ params, searchParams }: Props) {
                       <div className="flex items-start justify-between gap-3">
                         <p className="text-sm font-medium leading-snug text-fg">
                           {item.nombre}
+                          {hasDiscount && (
+                            <span className="ml-2 rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent">
+                              Socio
+                            </span>
+                          )}
                         </p>
-                        <p className="shrink-0 text-sm font-bold text-fg">
-                          {fmt.format(pvp * item.qty)}
-                        </p>
+                        <div className="shrink-0 text-right">
+                          {hasDiscount && (
+                            <p className="text-[11px] text-muted line-through">{fmt.format(pvp * item.qty)}</p>
+                          )}
+                          <p className="text-sm font-bold text-fg">{fmt.format(linePrice * item.qty)}</p>
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-3">
@@ -212,19 +233,24 @@ export default function StoreCartPage({ params, searchParams }: Props) {
               <h2 className="text-base font-semibold text-fg">Resumen del pedido</h2>
 
               <div className="space-y-2 border-t border-white/[0.05] pt-4">
-                {items.map((item) => (
-                  <div
-                    key={item.productId}
-                    className="flex items-center justify-between text-xs text-muted"
-                  >
-                    <span className="max-w-[160px] truncate">
-                      {item.nombre} × {item.qty}
-                    </span>
-                    <span className="shrink-0">
-                      {fmt.format(parseFloat(item.precioPublico) * item.qty)}
-                    </span>
-                  </div>
-                ))}
+                {items.map((item) => {
+                  const pvp = parseFloat(item.precioPublico);
+                  const pvs = parseFloat(item.precioSocio);
+                  const linePrice = isSocio && pvs < pvp ? pvs : pvp;
+                  return (
+                    <div
+                      key={item.productId}
+                      className="flex items-center justify-between text-xs text-muted"
+                    >
+                      <span className="max-w-[160px] truncate">
+                        {item.nombre} × {item.qty}
+                      </span>
+                      <span className="shrink-0">
+                        {fmt.format(linePrice * item.qty)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="flex items-center justify-between border-t border-white/[0.05] pt-4">

@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { Store, ShoppingCart } from "lucide-react";
+import { auth } from "@/auth";
 import { db } from "@/infra/db";
-import { products, users } from "@/infra/db/schema";
+import { memberships, products, users } from "@/infra/db/schema";
 import { StoreProductCard } from "@/components/shop/store-product-card";
 import { getStoreCartAction } from "@/app/actions/store-cart-actions";
 
@@ -21,6 +22,18 @@ export default async function TiendaPage({ params }: Props) {
     .limit(1);
 
   if (!seller) notFound();
+
+  const session = await auth();
+  let isSocio = false;
+  if (session?.user?.id) {
+    const [mem] = await db
+      .select({ status: memberships.status })
+      .from(memberships)
+      .where(eq(memberships.userId, session.user.id))
+      .orderBy(desc(memberships.createdAt))
+      .limit(1);
+    isSocio = mem?.status === "active";
+  }
 
   const productList = await db
     .select()
@@ -92,6 +105,7 @@ export default async function TiendaPage({ params }: Props) {
                 key={product.id}
                 product={product}
                 sellerId={userId}
+                isSocio={isSocio}
                 inCart={cartProductIds.has(product.id)}
               />
             ))}

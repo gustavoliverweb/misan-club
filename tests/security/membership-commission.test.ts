@@ -4,7 +4,7 @@
  * Verifica que el webhook checkout.session.completed:
  *   1. Llama a processSaleAction con category "membership" en primera activación.
  *   2. Llama a processSaleAction con category "membership" en renovación.
- *   3. Pasa saleAmountNet = 99 (cuota anual).
+ *   3. Pasa saleAmountNet = 81.82 (€99 bruto − 21% IVA).
  *   4. No llama a processSaleAction si el webhook es duplicado (idempotencia).
  *   5. Devuelve 200 aunque processSaleAction falle (best-effort).
  *   6. Las tasas de membresía son N1=3%, N2=3%, N3=3%, N4=4%, N5=5%.
@@ -141,7 +141,7 @@ describe("Stripe webhook — membership commission flow", () => {
     const call = mockProcessSale.mock.calls[0][0];
     expect(call.memberId).toBe(USER_ID);
     expect(call.category).toBe("membership");
-    expect(call.saleAmountNet).toBe(99);
+    expect(call.saleAmountNet).toBe(81.82);
     expect(call.isPublicSale).toBe(false);
     expect(call.eventLabel).toBe("activación de membresía");
   });
@@ -167,7 +167,7 @@ describe("Stripe webhook — membership commission flow", () => {
     const call = mockProcessSale.mock.calls[0][0];
     expect(call.memberId).toBe(USER_ID);
     expect(call.category).toBe("membership");
-    expect(call.saleAmountNet).toBe(99);
+    expect(call.saleAmountNet).toBe(81.82);
     expect(call.eventLabel).toBe("renovación de membresía");
   });
 

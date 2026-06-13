@@ -9,6 +9,7 @@ import {
   orderItems,
   orders,
   processedExternalOrders,
+  purchaseInvoices,
   storeOrderItems,
   storeOrders,
   users,
@@ -20,7 +21,8 @@ const renewalService = new MembershipRenewalService();
 
 // Virtual product ID used as referenceId for all membership commission transactions
 const MEMBERSHIP_PRODUCT_ID = "00000000-0000-4000-8000-000000000099";
-const MEMBERSHIP_AMOUNT_EUR = 99;
+const MEMBERSHIP_GROSS_EUR = 99;
+const MEMBERSHIP_AMOUNT_EUR = Math.round((MEMBERSHIP_GROSS_EUR / 1.21) * 100) / 100; // net of 21% VAT → 81.82
 
 export async function POST(req: Request) {
   const body = await req.text();
@@ -47,7 +49,7 @@ export async function POST(req: Request) {
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
-  const { userId, type, sellerId, storeOrderId } = session.metadata ?? {};
+  const { userId, type, sellerId, storeOrderId, buyerId } = session.metadata ?? {};
 
   // ── Store sale (guest buyer, no userId) ───────────────────────────────────
   if (type === "store_sale") {
@@ -93,18 +95,58 @@ export async function POST(req: Request) {
         .where(eq(storeOrders.id, storeOrderId));
     });
 
+    // Create purchase invoice for authenticated buyer (best-effort)
+    if (buyerId) {
+      try {
+        const purchaseTotal = storeItems.reduce(
+          (sum, item) => sum + parseFloat(item.unitPrice) * item.quantity,
+          0,
+        );
+        const itemCount = storeItems.length;
+        await db.insert(purchaseInvoices).values({
+          userId: buyerId,
+          storeOrderId,
+          concepto: `Compra en tienda de socio · ${itemCount} ${itemCount === 1 ? "artículo" : "artículos"}`,
+          totalAmount: purchaseTotal.toFixed(2),
+        });
+      } catch (err) {
+        console.error(
+          "[WEBHOOK] Purchase invoice creation failed for store_sale buyer:",
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+
     for (const item of storeItems) {
       try {
         const saleAmountNet = parseFloat(item.commissionBase) * item.quantity;
         const marginPerUnit = parseFloat(item.unitPrice) - parseFloat(item.commissionBase);
-        const directMarginAmount = marginPerUnit * item.quantity;
-        await processSaleAction({
+
+        // Seller commission logic:
+        // - Guest buyer: seller keeps the price spread (PVP - PVS)
+        // - Authenticated non-self buyer: seller gets N1 rate on commissionBase
+        // - Self-purchase (buyerId === sellerId): seller gets nothing
+        const isSelf = buyerId && buyerId === sellerId;
+        const isSocioNonSelf = buyerId && buyerId !== sellerId;
+        const sellerCommission = isSelf
+          ? 0
+          : marginPerUnit > 0
+            ? marginPerUnit * item.quantity
+            : isSocioNonSelf
+              ? Math.round(parseFloat(item.porcentajeN1) * saleAmountNet * 100) / 100
+              : 0;
+
+        const result = await processSaleAction({
           memberId: sellerId,
           productId: item.productId,
           category: item.commissionCategory,
           saleAmountNet,
-          isPublicSale: directMarginAmount > 0,
-          directMarginAmount: directMarginAmount > 0 ? directMarginAmount : undefined,
+          isPublicSale: sellerCommission > 0,
+          directMarginAmount: sellerCommission > 0 ? sellerCommission : undefined,
+          directMarginDescription:
+            marginPerUnit > 0
+              ? `Margen venta pública — producto ${item.productId}`
+              : `Comisión venta en tienda — producto ${item.productId}`,
           customLevelPercentages: [
             parseFloat(item.porcentajeN1),
             parseFloat(item.porcentajeN2),
@@ -114,6 +156,12 @@ export async function POST(req: Request) {
           ],
           customPoolRate: parseFloat(item.porcentajePool),
         });
+        if (!result.success) {
+          console.error(
+            `[WEBHOOK] processSaleAction failed for storeOrderItem ${item.id}:`,
+            result.error,
+          );
+        }
       } catch (err) {
         console.error(
           `[WEBHOOK] Commission processing failed for storeOrderItem ${item.id}:`,
@@ -180,7 +228,7 @@ export async function POST(req: Request) {
     for (const item of items) {
       try {
         const saleAmountNet = parseFloat(item.commissionBase) * item.quantity;
-        await processSaleAction({
+        const result = await processSaleAction({
           memberId: userId,
           productId: item.productId,
           category: item.commissionCategory,
@@ -195,6 +243,12 @@ export async function POST(req: Request) {
           ],
           customPoolRate: parseFloat(item.porcentajePool),
         });
+        if (!result.success) {
+          console.error(
+            `[WEBHOOK] processSaleAction failed for orderItem ${item.id}:`,
+            result.error,
+          );
+        }
       } catch (err) {
         console.error(
           `[WEBHOOK] Commission processing failed for orderItem ${item.id}:`,
@@ -215,6 +269,26 @@ export async function POST(req: Request) {
       if (cart) {
         await db.delete(cartItems).where(eq(cartItems.cartId, cart.id));
       }
+    }
+
+    // Create purchase invoice for the buyer (best-effort)
+    try {
+      const purchaseTotal = items.reduce(
+        (sum, item) => sum + parseFloat(item.unitPrice) * item.quantity,
+        0,
+      );
+      const itemCount = items.length;
+      await db.insert(purchaseInvoices).values({
+        userId,
+        orderId,
+        concepto: `Compra de productos · ${itemCount} ${itemCount === 1 ? "artículo" : "artículos"}`,
+        totalAmount: purchaseTotal.toFixed(2),
+      });
+    } catch (err) {
+      console.error(
+        `[WEBHOOK] Purchase invoice creation failed for order ${orderId}:`,
+        err instanceof Error ? err.message : err,
+      );
     }
 
     return new Response("ok", { status: 200 });

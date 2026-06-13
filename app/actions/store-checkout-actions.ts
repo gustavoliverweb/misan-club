@@ -1,9 +1,10 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { auth } from "@/auth";
 import { db } from "@/infra/db";
-import { products, storeOrders, storeOrderItems } from "@/infra/db/schema";
+import { memberships, products, storeOrders, storeOrderItems } from "@/infra/db/schema";
 import { stripe } from "@/infra/stripe";
 
 type ActionResult<T = undefined> =
@@ -33,6 +34,18 @@ export async function createStoreCheckoutSessionAction(
     return { success: false, error: "Tu carrito está vacío." };
   }
 
+  const session = await auth();
+  let isSocio = false;
+  if (session?.user?.id) {
+    const [mem] = await db
+      .select({ status: memberships.status })
+      .from(memberships)
+      .where(eq(memberships.userId, session.user.id))
+      .orderBy(desc(memberships.createdAt))
+      .limit(1);
+    isSocio = mem?.status === "active";
+  }
+
   const productIds = cart.items.map((i) => i.productId);
 
   const rows = await db
@@ -47,12 +60,15 @@ export async function createStoreCheckoutSessionAction(
   const enriched = cart.items.flatMap((ci) => {
     const product = rows.find((r) => r.id === ci.productId);
     if (!product) return [];
+    const pvp = parseFloat(product.precioPublico);
+    const pvs = parseFloat(product.precioSocio);
+    const unitPrice = isSocio && pvs < pvp ? pvs : pvp;
     return [
       {
         ...ci,
         product,
-        unitPrice: parseFloat(product.precioPublico),
-        commissionBase: parseFloat(product.precioSocio),
+        unitPrice,
+        commissionBase: Math.round((pvs / 1.21) * 100) / 100,
       },
     ];
   });
@@ -109,6 +125,7 @@ export async function createStoreCheckoutSessionAction(
       type: "store_sale",
       sellerId,
       storeOrderId: order.id,
+      buyerId: session?.user?.id ?? "",
     },
     success_url: `${baseUrl}/tienda/confirmacion/${order.id}?success=true`,
     cancel_url: `${baseUrl}/tienda/${sellerId}/cart?canceled=true`,

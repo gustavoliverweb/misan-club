@@ -25,6 +25,7 @@ const mockDb = vi.hoisted(() => ({
   transaction: vi.fn(),
   delete: vi.fn(),
   update: vi.fn(),
+  insert: vi.fn(),
 }));
 vi.mock("@/infra/db", () => ({ db: mockDb }));
 
@@ -244,6 +245,42 @@ describe("Stripe webhook — store_sale flow", () => {
     expect(saleCall.directMarginAmount).toBeUndefined();
   });
 
+  it("does not credit seller commission on self-purchase (buyerId === sellerId)", async () => {
+    mockConstructEvent.mockReturnValue(
+      makeStoreSaleEvent({ buyerId: SELLER_ID }),
+    );
+
+    // pvs = 24.20 → commissionBase = pvs/1.21 ≈ 20.00
+    // marginPerUnit = 24.20 − 20.00 = 4.20 > 0 → without the fix this branch fires
+    const selfItem = { ...STORE_ITEM, unitPrice: "24.20", commissionBase: "20.00" };
+
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain([{ id: SELLER_ID }]))
+      .mockReturnValueOnce(makeSelectChainNoLimit([selfItem]));
+
+    mockDb.transaction.mockImplementation(async (cb: (tx: unknown) => Promise<void>) => {
+      const tx = {
+        insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
+        }),
+      };
+      await cb(tx);
+    });
+
+    mockDb.insert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) });
+    mockProcessSale.mockResolvedValue({ success: true, data: { transactionIds: [] } });
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockProcessSale).toHaveBeenCalledOnce();
+    const saleCall = mockProcessSale.mock.calls[0][0];
+    expect(saleCall.isPublicSale).toBe(false);
+    expect(saleCall.directMarginAmount).toBeUndefined();
+  });
+
   it("membership flow calls processSaleAction with category membership (no type in metadata)", async () => {
     mockConstructEvent.mockReturnValue({
       type: "checkout.session.completed",
@@ -277,7 +314,7 @@ describe("Stripe webhook — store_sale flow", () => {
     const call = mockProcessSale.mock.calls[0][0];
     expect(call.memberId).toBe(USER_ID);
     expect(call.category).toBe("membership");
-    expect(call.saleAmountNet).toBe(99);
+    expect(call.saleAmountNet).toBe(81.82);
     expect(call.isPublicSale).toBe(false);
     expect(call.eventLabel).toBe("activación de membresía");
   });

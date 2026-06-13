@@ -11,6 +11,13 @@ export type CurrentUser = {
   fullName: string;
   kycStatus: "pending" | "verified" | "rejected";
   role: "admin" | "leader" | "member";
+  phone: string | null;
+  birthDate: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  postalCode: string | null;
+  bio: string | null;
   membership: {
     status: "active" | "grace" | "expired";
     expiresAt: Date;
@@ -30,6 +37,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       fullName: users.fullName,
       kycStatus: users.kycStatus,
       role: users.role,
+      phone: users.phone,
+      birthDate: users.birthDate,
+      address: users.address,
+      city: users.city,
+      country: users.country,
+      postalCode: users.postalCode,
+      bio: users.bio,
     })
     .from(users)
     .where(eq(users.id, session.user.id))

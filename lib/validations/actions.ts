@@ -27,6 +27,8 @@ export const purchaseSchema = z
     customPoolRate: z.number().min(0).max(1).optional(),
     // Human-readable label shown in wallet descriptions instead of the raw productId
     eventLabel: z.string().max(100).optional(),
+    // Override description for the seller's direct margin/commission credit
+    directMarginDescription: z.string().max(200).optional(),
   })
   .refine(
     (d) => d.category !== "service" || d.commercialMargin !== undefined,

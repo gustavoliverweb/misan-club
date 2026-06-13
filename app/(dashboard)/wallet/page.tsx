@@ -1,16 +1,17 @@
 import { redirect } from "next/navigation";
 import { eq, desc } from "drizzle-orm";
 import {
-  ArrowDownLeft,
   ArrowUpRight,
+  ShoppingBag,
   Wallet as WalletIcon,
   FileDown,
   AlertCircle,
+  TrendingUp,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/current-user";
 import { WalletService } from "@/core/services/wallet.service";
 import { db } from "@/infra/db";
-import { transactions, autofacturas } from "@/infra/db/schema";
+import { transactions, purchaseInvoices } from "@/infra/db/schema";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -32,7 +33,8 @@ export default async function WalletPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const txRows = await db
+  // All transactions — used only for balance computation
+  const allTxRows = await db
     .select({
       id: transactions.id,
       userId: transactions.userId,
@@ -42,14 +44,12 @@ export default async function WalletPage() {
       referenceId: transactions.referenceId,
       checksum: transactions.checksum,
       createdAt: transactions.createdAt,
-      autofacturaId: autofacturas.id,
     })
     .from(transactions)
-    .leftJoin(autofacturas, eq(autofacturas.commissionId, transactions.id))
     .where(eq(transactions.userId, user.id))
     .orderBy(desc(transactions.createdAt));
 
-  const domainTxs = txRows.map((row) => ({
+  const domainTxs = allTxRows.map((row) => ({
     ...row,
     amount: parseFloat(row.amount),
     referenceId: row.referenceId ?? undefined,
@@ -60,7 +60,76 @@ export default async function WalletPage() {
   const todayUTC = new Date().getUTCDate();
   const isWithdrawalWindow = todayUTC >= 1 && todayUTC <= 5;
 
-  const recent = txRows.slice(0, 20);
+  // Only withdrawal transactions shown in movements
+  const withdrawalTxs = allTxRows.filter(
+    (tx) => tx.description === "Solicitud de retiro",
+  );
+
+  // Store sale earnings: credits from selling through personal store link
+  const saleEarningTxs = allTxRows.filter(
+    (tx) =>
+      tx.type === "credit" &&
+      (tx.description.startsWith("Margen venta pública") ||
+        tx.description.startsWith("Margen directo") ||
+        tx.description.startsWith("Comisión venta en tienda")),
+  );
+
+  // Purchase invoices for this user
+  const purchaseRows = await db
+    .select({
+      id: purchaseInvoices.id,
+      concepto: purchaseInvoices.concepto,
+      totalAmount: purchaseInvoices.totalAmount,
+      issuedAt: purchaseInvoices.issuedAt,
+    })
+    .from(purchaseInvoices)
+    .where(eq(purchaseInvoices.userId, user.id))
+    .orderBy(desc(purchaseInvoices.issuedAt));
+
+  type WithdrawalEntry = {
+    kind: "withdrawal";
+    id: string;
+    amount: string;
+    date: Date;
+  };
+  type PurchaseEntry = {
+    kind: "purchase";
+    id: string;
+    concepto: string;
+    totalAmount: string;
+    date: Date;
+  };
+  type SaleEntry = {
+    kind: "sale";
+    id: string;
+    amount: string;
+    date: Date;
+  };
+  type Movement = WithdrawalEntry | PurchaseEntry | SaleEntry;
+
+  const movements: Movement[] = [
+    ...withdrawalTxs.map((tx) => ({
+      kind: "withdrawal" as const,
+      id: tx.id,
+      amount: tx.amount,
+      date: tx.createdAt,
+    })),
+    ...purchaseRows.map((pi) => ({
+      kind: "purchase" as const,
+      id: pi.id,
+      concepto: pi.concepto,
+      totalAmount: pi.totalAmount,
+      date: pi.issuedAt,
+    })),
+    ...saleEarningTxs.map((tx) => ({
+      kind: "sale" as const,
+      id: tx.id,
+      amount: tx.amount,
+      date: tx.createdAt,
+    })),
+  ]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 20);
 
   return (
     <div className="mx-auto max-w-2xl space-y-3">
@@ -82,7 +151,7 @@ export default async function WalletPage() {
               {fmt.format(balance)}
             </p>
             <p className="mt-1.5 text-xs text-muted">
-              {txRows.length} transacciones registradas
+              {allTxRows.length} transacciones registradas
             </p>
           </div>
           <WalletIcon size={28} className="mb-1 text-faint" />
@@ -112,22 +181,22 @@ export default async function WalletPage() {
         </div>
       </BentoCard>
 
-      {/* Transactions table */}
+      {/* Movements table */}
       <BentoCard className="overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted">
             Últimos movimientos
           </p>
-          <span className="tabular-nums text-sm text-faint">{recent.length}</span>
+          <span className="tabular-nums text-sm text-faint">{movements.length}</span>
         </div>
 
-        {recent.length === 0 ? (
+        {movements.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <WalletIcon size={36} className="text-faint" />
             <div>
               <p className="text-sm font-medium text-muted">Sin movimientos todavía</p>
               <p className="mt-1 text-xs text-faint">
-                Las comisiones aparecerán aquí una vez proceses una venta.
+                Tus retiros y compras aparecerán aquí.
               </p>
             </div>
           </div>
@@ -143,38 +212,93 @@ export default async function WalletPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recent.map((tx) => (
-                <TableRow key={tx.id}>
-                  <TableCell className="max-w-40 truncate font-medium text-fg">
-                    {tx.description}
-                  </TableCell>
-                  <TableCell>
-                    <span className="flex items-center gap-1">
-                      {tx.type === "credit" ? (
-                        <ArrowDownLeft size={14} className="text-green-500" />
-                      ) : (
-                        <ArrowUpRight size={14} className="text-red-500" />
-                      )}
-                      <Badge variant={tx.type === "credit" ? "success" : "error"}>
-                        {tx.type === "credit" ? "Crédito" : "Débito"}
-                      </Badge>
-                    </span>
-                  </TableCell>
-                  <TableCell
-                    className={`text-right font-semibold tabular-nums ${
-                      tx.type === "credit" ? "text-green-500" : "text-red-500"
-                    }`}
-                  >
-                    {tx.type === "credit" ? "+" : "−"}
-                    {fmt.format(parseFloat(tx.amount))}
-                  </TableCell>
-                  <TableCell className="hidden text-xs text-muted sm:table-cell">
-                    {fmtDate.format(new Date(tx.createdAt))}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {tx.autofacturaId ? (
+              {movements.map((mv) => {
+                if (mv.kind === "withdrawal") {
+                  return (
+                    <TableRow key={mv.id}>
+                      <TableCell className="max-w-40 truncate font-medium text-fg">
+                        Solicitud de retiro
+                      </TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-1">
+                          <ArrowUpRight size={14} className="text-red-500" />
+                          <Badge variant="error">Retiro</Badge>
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums text-red-500">
+                        −{fmt.format(parseFloat(mv.amount))}
+                      </TableCell>
+                      <TableCell className="hidden text-xs text-muted sm:table-cell">
+                        {fmtDate.format(new Date(mv.date))}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <a
+                          href={`/api/withdrawals/${mv.id}/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-accent transition-colors hover:text-accent/70"
+                        >
+                          <FileDown size={13} />
+                          PDF
+                        </a>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+
+                if (mv.kind === "sale") {
+                  return (
+                    <TableRow key={mv.id}>
+                      <TableCell className="max-w-40 truncate font-medium text-fg">
+                        Venta en tienda personal
+                      </TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-1">
+                          <TrendingUp size={14} className="text-green-500" />
+                          <Badge variant="success">Venta</Badge>
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums text-green-500">
+                        +{fmt.format(parseFloat(mv.amount))}
+                      </TableCell>
+                      <TableCell className="hidden text-xs text-muted sm:table-cell">
+                        {fmtDate.format(new Date(mv.date))}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <a
+                          href={`/api/commissions/${mv.id}/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-accent transition-colors hover:text-accent/70"
+                        >
+                          <FileDown size={13} />
+                          PDF
+                        </a>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+
+                return (
+                  <TableRow key={mv.id}>
+                    <TableCell className="max-w-40 truncate font-medium text-fg">
+                      {mv.concepto}
+                    </TableCell>
+                    <TableCell>
+                      <span className="flex items-center gap-1">
+                        <ShoppingBag size={14} className="text-accent" />
+                        <Badge variant="neutral">Compra</Badge>
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums text-fg">
+                      {fmt.format(parseFloat(mv.totalAmount))}
+                    </TableCell>
+                    <TableCell className="hidden text-xs text-muted sm:table-cell">
+                      {fmtDate.format(new Date(mv.date))}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <a
-                        href={`/api/autofacturas/${tx.autofacturaId}/pdf`}
+                        href={`/api/purchase-invoices/${mv.id}/pdf`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs font-medium text-accent transition-colors hover:text-accent/70"
@@ -182,12 +306,10 @@ export default async function WalletPage() {
                         <FileDown size={13} />
                         PDF
                       </a>
-                    ) : (
-                      <span className="text-xs text-faint">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}

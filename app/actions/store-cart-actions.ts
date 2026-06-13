@@ -1,9 +1,10 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { auth } from "@/auth";
 import { db } from "@/infra/db";
-import { products } from "@/infra/db/schema";
+import { memberships, products } from "@/infra/db/schema";
 
 const COOKIE_NAME = "store_cart";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -161,4 +162,18 @@ export async function getStoreCartCountAction(sellerId?: string): Promise<number
 export async function clearStoreCartAction(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
+}
+
+export async function checkIsSocioAction(): Promise<boolean> {
+  const session = await auth();
+  if (!session?.user?.id) return false;
+
+  const [mem] = await db
+    .select({ status: memberships.status })
+    .from(memberships)
+    .where(eq(memberships.userId, session.user.id))
+    .orderBy(desc(memberships.createdAt))
+    .limit(1);
+
+  return mem?.status === "active";
 }

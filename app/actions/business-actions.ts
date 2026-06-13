@@ -91,6 +91,7 @@ export async function processSaleAction(
     commercialMargin,
     isPublicSale,
     directMarginAmount,
+    directMarginDescription,
     eventLabel,
   } = parsed.data;
 
@@ -119,14 +120,11 @@ export async function processSaleAction(
       transactionIds.push(txId);
     }
 
-    // ── Direct credit: public sale margin (PrecioPublico - PrecioSocio) ──────
+    // ── Direct credit: seller's margin or commission for store sales ─────────
     if (isPublicSale && directMarginAmount) {
-      const txId = await insertDirectCredit(
-        memberId,
-        directMarginAmount,
-        `Margen venta pública — producto ${productId}`,
-        productId,
-      );
+      const desc =
+        directMarginDescription ?? `Margen venta pública — producto ${productId}`;
+      const txId = await insertDirectCredit(memberId, directMarginAmount, desc, productId);
       transactionIds.push(txId);
     }
 

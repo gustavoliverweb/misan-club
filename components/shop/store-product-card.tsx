@@ -9,6 +9,7 @@ import type { ProductRow } from "@/app/actions/product-actions";
 type Props = {
   product: ProductRow;
   sellerId: string;
+  isSocio?: boolean;
   inCart?: boolean;
 };
 
@@ -18,12 +19,15 @@ const fmt = new Intl.NumberFormat("es-ES", {
   minimumFractionDigits: 2,
 });
 
-export function StoreProductCard({ product, sellerId, inCart = false }: Props) {
+export function StoreProductCard({ product, sellerId, isSocio = false, inCart = false }: Props) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [addedToCart, setAddedToCart] = useState(inCart);
 
   const pvp = parseFloat(product.precioPublico);
+  const pvs = parseFloat(product.precioSocio);
+  const hasDiscount = isSocio && pvs < pvp;
+  const displayPrice = hasDiscount ? pvs : pvp;
 
   async function handleAdd() {
     setLoading(true);
@@ -89,12 +93,20 @@ export function StoreProductCard({ product, sellerId, inCart = false }: Props) {
         )}
 
         {/* Price */}
-        <div className="mt-auto">
+        <div className="mt-auto space-y-1">
+          {hasDiscount && (
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                Precio socio
+              </span>
+              <span className="text-xs text-muted line-through">{fmt.format(pvp)}</span>
+            </div>
+          )}
           <span
             className="text-2xl font-bold text-fg"
             style={{ letterSpacing: "-0.03em" }}
           >
-            {fmt.format(pvp)}
+            {fmt.format(displayPrice)}
             <span className="ml-1 text-sm font-normal text-muted">IVA inc.</span>
           </span>
         </div>

@@ -56,7 +56,7 @@ export async function createCartCheckoutSessionAction(): Promise<
     const unitPrice = isSocioActivo
       ? parseFloat(item.precioSocio)
       : parseFloat(item.precioPublico);
-    const commissionBase = parseFloat(item.precioSocio);
+    const commissionBase = Math.round((parseFloat(item.precioSocio) / 1.21) * 100) / 100;
     return { ...item, unitPrice, commissionBase, isSocioPrice: isSocioActivo };
   });
 

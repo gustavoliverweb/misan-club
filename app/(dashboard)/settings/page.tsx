@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { Settings as SettingsIcon } from "lucide-react";
 import { getCurrentUser } from "@/lib/current-user";
 import { BentoCard } from "@/components/ui/bento-card";
 import { Badge } from "@/components/ui/badge";
 import { AutoRenewToggle } from "@/components/dashboard/auto-renew-toggle";
+import { ProfileForm } from "@/components/dashboard/profile-form";
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
@@ -116,12 +116,23 @@ export default async function SettingsPage() {
         </BentoCard>
       )}
 
-      {/* Placeholder */}
-      <BentoCard className="flex items-center gap-3">
-        <SettingsIcon size={18} className="shrink-0 text-faint" />
-        <p className="text-sm text-muted">
-          Más opciones de configuración disponibles próximamente.
+      {/* Profile edit card */}
+      <BentoCard>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted mb-4">
+          Editar perfil
         </p>
+        <ProfileForm
+          profile={{
+            fullName: user.fullName,
+            phone: user.phone,
+            birthDate: user.birthDate,
+            address: user.address,
+            city: user.city,
+            country: user.country,
+            postalCode: user.postalCode,
+            bio: user.bio,
+          }}
+        />
       </BentoCard>
     </div>
   );

@@ -8,6 +8,7 @@ import {
   timestamp,
   decimal,
   text,
+  date,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -53,6 +54,13 @@ export const users = pgTable("users", {
   passwordHash: varchar("password_hash", { length: 255 }),
   kycStatus: kycStatusEnum("kyc_status").notNull().default("pending"),
   role: roleEnum("role").notNull().default("member"),
+  phone: varchar("phone", { length: 20 }),
+  birthDate: date("birth_date"),
+  address: varchar("address", { length: 255 }),
+  city: varchar("city", { length: 100 }),
+  country: varchar("country", { length: 100 }),
+  postalCode: varchar("postal_code", { length: 20 }),
+  bio: text("bio"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -344,6 +352,20 @@ export const contactRequests = pgTable("contact_requests", {
   mensaje: text("mensaje").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const purchaseInvoices = pgTable("purchase_invoices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  orderId: uuid("order_id"),
+  storeOrderId: uuid("store_order_id"),
+  concepto: text("concepto").notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+});
+
+export const purchaseInvoicesRelations = relations(purchaseInvoices, ({ one }) => ({
+  user: one(users, { fields: [purchaseInvoices.userId], references: [users.id] }),
+}));
 
 export const cartsRelations = relations(carts, ({ one, many }) => ({
   user: one(users, { fields: [carts.userId], references: [users.id] }),
